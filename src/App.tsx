@@ -9,6 +9,7 @@ import Facturas from './pages/Facturas';
 import EditarFactura from './pages/EditarFactura';
 import Ajustes from './pages/Ajustes';
 import Importar from './pages/Importar';
+import Usuarios from './pages/Usuarios';
 
 // «celular: false» = no va en la barra de abajo del celular (se llega por el botón de arriba).
 const MENU = [
@@ -36,9 +37,10 @@ export default function App() {
   else if (camino.startsWith('/factura/')) pagina = <EditarFactura key={camino} id={decodeURIComponent(camino.slice(9))} />;
   else if (camino === '/ajustes') pagina = <Ajustes />;
   else if (camino === '/importar') pagina = <Importar />;
+  else if (camino === '/usuarios') pagina = <Usuarios />;
   else pagina = <Inicio />;
 
-  const activo = (r: string) => camino === r || (r === '/ajustes' && camino === '/importar')
+  const activo = (r: string) => camino === r || (r === '/ajustes' && (camino === '/importar' || camino === '/usuarios'))
     || (r === '/facturas' && camino.startsWith('/factura/')) || (r === '/nuevo' && camino.startsWith('/viaje/'));
   const enlaces = (celular: boolean) => MENU.filter((m) => !celular || m.celular !== false).map((m) => (
     <a key={m.ruta} href={`#${m.ruta}`} className={activo(m.ruta) ? 'activo' : ''}>

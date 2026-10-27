@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { db, eliminar as borrarDatos, guardar as guardarDatos, leerConfig, type Factura } from '../db';
 import { TASA_IVA_POR_DEFECTO } from '../iva';
+import { usePermisos } from '../sync';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir, parametros, useRuta } from '../router';
 
@@ -9,6 +10,7 @@ interface Borrador { fecha: string; numero: string; proveedor: string; concepto:
 const CONCEPTOS = ['Diésel', 'Repuestos', 'Llantas', 'Mantenimiento', 'Lubricantes', 'Peaje'];
 
 export default function EditarFactura({ id }: { id?: string }) {
+  const { puedeBorrar } = usePermisos();
   const q = parametros(useRuta());
   const mesSugerido = q.get('fecha'); // aaaa-mm del mes que se estaba mirando
   const [base, setBase] = useState<Factura | undefined>();
@@ -91,7 +93,7 @@ export default function EditarFactura({ id }: { id?: string }) {
     <>
       <div className="encabezado">
         <h1>{base ? 'Editar factura' : 'Nueva factura'}</h1>
-        {base && <button type="button" className="boton peligro" onClick={eliminar}>Eliminar</button>}
+        {base && puedeBorrar && <button type="button" className="boton peligro" onClick={eliminar}>Eliminar</button>}
       </div>
       {estado && <div className={`aviso ${estado.startsWith('✔') ? '' : 'error'}`}>{leyendo && '⏳ '}{estado}</div>}
 

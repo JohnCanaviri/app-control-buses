@@ -3,9 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { crearRespaldo, db, leerConfig, restaurarRespaldo, type Respaldo } from '../db';
 import { TASA_IVA_POR_DEFECTO } from '../iva';
 import { PanelCuenta } from '../Cuenta';
+import { usePermisos } from '../sync';
 import { hoyISO } from '../format';
 
 export default function Ajustes() {
+  const { puedeImportar } = usePermisos();
   const total = useLiveQuery(() => db.viajes.count(), []);
   const facturas = useLiveQuery(() => db.facturas.count(), []);
   const [protegido, setProtegido] = useState<boolean | null>(null);
@@ -62,7 +64,7 @@ export default function Ajustes() {
         <h2>Traer datos de tu Excel</h2>
         <p>Pasa a la app los viajes y facturas de tu archivo control_buses.xlsx, comprobando que los totales cuadren.</p>
         <div className="acciones fila">
-          <a href="#/importar" className="boton primario">📥 Importar desde Excel</a>
+          {puedeImportar && <a href="#/importar" className="boton primario">📥 Importar desde Excel</a>}
           <button type="button" className="boton" onClick={exportar}>📤 Exportar todo a Excel</button>
         </div>
         <p><small>El Excel exportado tiene las mismas columnas que tu hoja Registro (más los cálculos) y se puede volver a importar.</small></p>
@@ -73,10 +75,10 @@ export default function Ajustes() {
         <p>Descarga una copia cada semana y guárdala en tu correo, Drive o una memoria USB. Si cambias de celular o se borra el navegador, la restauras aquí.</p>
         <div className="acciones fila">
           <button type="button" className="boton primario" onClick={descargar}>⬇ Descargar respaldo</button>
-          <label className="boton">
+          {puedeImportar && <label className="boton">
             ⬆ Restaurar respaldo
             <input type="file" accept="application/json,.json" hidden onChange={(e) => { restaurar(e.target.files?.[0]); e.target.value = ''; }} />
-          </label>
+          </label>}
         </div>
       </section>
 

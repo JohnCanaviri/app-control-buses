@@ -164,6 +164,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--azul); bord
 .foto-factura.grande { max-width: 100%; max-height: none; cursor: zoom-out; }
 .monto-grande { font-size: 1.3rem; font-weight: 800; }
 .boton:disabled { opacity: .5; cursor: wait; }
+.fila-usuario { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 10px; }
+.fila-usuario .acciones { margin-top: 0; }
 
 /* --- Gráficos --- */
 .graficos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

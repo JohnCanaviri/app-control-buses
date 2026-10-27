@@ -4,6 +4,7 @@ import { db, BUSES, eliminar as borrarDatos, guardar as guardarDatos } from '../
 import { calcular, type Viaje } from '../calc';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir } from '../router';
+import { usePermisos } from '../sync';
 import { Botones, Insignia } from '../components';
 
 // En el formulario los números se guardan como texto para poder escribir «50,5».
@@ -67,6 +68,7 @@ function aViaje(b: Borrador, base?: Viaje): Viaje {
 }
 
 export default function EditarViaje({ id }: { id?: string }) {
+  const { puedeBorrar } = usePermisos();
   const [base, setBase] = useState<Viaje | undefined>();
   const [b, setB] = useState<Borrador | null>(id ? null : nuevoBorrador());
   const [aviso, setAviso] = useState('');
@@ -109,7 +111,7 @@ export default function EditarViaje({ id }: { id?: string }) {
     <>
       <div className="encabezado">
         <h1>{base ? 'Editar viaje' : 'Nuevo viaje'}</h1>
-        {base && <button type="button" className="boton peligro" onClick={eliminar}>Eliminar</button>}
+        {base && puedeBorrar && <button type="button" className="boton peligro" onClick={eliminar}>Eliminar</button>}
       </div>
       {aviso && <div className="aviso" onClick={() => setAviso('')}>{aviso}</div>}
 

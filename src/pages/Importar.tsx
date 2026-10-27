@@ -3,8 +3,10 @@ import { db, guardar } from '../db';
 import type { Importacion } from '../importar';
 import { bs, MESES } from '../format';
 import { Tarjeta } from '../components';
+import { usePermisos } from '../sync';
 
 export default function Importar() {
+  const { puedeImportar } = usePermisos();
   const [nombre, setNombre] = useState('');
   const [leyendo, setLeyendo] = useState(false);
   const [datos, setDatos] = useState<Importacion | null>(null);
@@ -40,6 +42,10 @@ export default function Importar() {
 
   const malos = datos?.comparacion.filter((c) => !c.cuadra).length ?? 0;
   const conIdaNeto = datos?.comparacion.some((c) => c.idaNeto !== null);
+
+  if (!puedeImportar) {
+    return <section className="panel"><h1>Importar desde Excel</h1><p className="vacio">Solo el administrador puede importar datos.</p></section>;
+  }
 
   return (
     <>

@@ -6,13 +6,19 @@ import { db, guardarConfig, leerConfig, marcarTodoParaSubir, type Cambio, type F
 import type { Viaje } from './calc';
 import { supabase } from './nube';
 
-export type Fase = 'sin-cuenta' | 'sin-internet' | 'sincronizando' | 'listo' | 'error';
-export interface EstadoSync { fase: Fase; mensaje: string; pendientes: number; ultima: number | null; correo: string | null }
+export type Fase = 'sin-cuenta' | 'pendiente' | 'rechazado' | 'sin-internet' | 'sincronizando' | 'listo' | 'error';
+export type Rol = 'pendiente' | 'empleado' | 'admin' | 'rechazado';
+export interface EstadoSync {
+  fase: Fase; mensaje: string; pendientes: number; ultima: number | null;
+  correo: string | null;
+  rol: Rol | null; // null = sin cuenta: la app funciona solo en este equipo, con todos los permisos
+  solicitudes: number; // cuentas esperando aprobación (solo lo ve el administrador)
+}
 
 const TABLAS: Tabla[] = ['viajes', 'facturas'];
 const TANDA = 200;
 
-let estado: EstadoSync = { fase: 'sin-cuenta', mensaje: '', pendientes: 0, ultima: null, correo: null };
+let estado: EstadoSync = { fase: 'sin-cuenta', mensaje: '', pendientes: 0, ultima: null, correo: null, rol: null, solicitudes: 0 };
 const oyentes = new Set<(e: EstadoSync) => void>();
 function poner(cambio: Partial<EstadoSync>) {
   estado = { ...estado, ...cambio };
@@ -29,7 +35,7 @@ let sesion: Session | null = null;
 let corriendo = false;
 let otraVez = false;
 
-async function subir(usuario: string) {
+async function subir() {
   const cambios = await db.cambios.toArray();
   for (const t of TABLAS) {
     const deEsta = cambios.filter((c) => c.tabla === t);
@@ -38,9 +44,10 @@ async function subir(usuario: string) {
       const locales = await (db[t] as typeof db.viajes | typeof db.facturas).bulkGet(tanda.map((c) => c.id));
       const filas = tanda.map((c, j) => {
         const obj = locales[j] as Viaje | Factura | undefined;
-        return { user_id: usuario, id: c.id, datos: obj ?? null, borrado: !obj, actualizado: obj?.actualizado ?? Date.now() };
+        // Los datos son de toda la empresa: «user_id» (quién lo creó) lo pone el servidor la primera vez.
+        return { id: c.id, datos: obj ?? null, borrado: !obj, actualizado: obj?.actualizado ?? Date.now() };
       });
-      const { error } = await supabase.from(t).upsert(filas, { onConflict: 'user_id,id' });
+      const { error } = await supabase.from(t).upsert(filas, { onConflict: 'id' });
       if (error) throw new Error(error.message);
       // Solo se quitan los cambios que no se volvieron a tocar mientras se subían.
       await db.transaction('rw', db.cambios, async () => {
@@ -87,13 +94,24 @@ async function bajar() {
 export async function sincronizar() {
   if (corriendo) { otraVez = true; return; }
   const pendientes = await db.cambios.count();
-  if (!sesion) { poner({ fase: 'sin-cuenta', pendientes, correo: null }); return; }
+  if (!sesion) { poner({ fase: 'sin-cuenta', pendientes, correo: null, rol: null, solicitudes: 0 }); return; }
   if (!navigator.onLine) { poner({ fase: 'sin-internet', pendientes }); return; }
   corriendo = true;
   poner({ fase: 'sincronizando', pendientes });
   try {
-    await subir(sesion.user.id);
+    // El rol se vuelve a leer cada vez: así una cuenta pendiente se activa sola cuando la apruebas.
+    const rol = await leerRol(sesion.user.id);
+    if (rol !== 'admin' && rol !== 'empleado') {
+      poner({ fase: rol === 'rechazado' ? 'rechazado' : 'pendiente', rol, mensaje: '' });
+      return;
+    }
+    poner({ rol });
+    await subir();
     await bajar();
+    if (rol === 'admin') {
+      const { count } = await supabase.from('perfiles').select('user_id', { count: 'exact', head: true }).eq('rol', 'pendiente');
+      poner({ solicitudes: count ?? 0 });
+    }
     poner({ fase: 'listo', mensaje: '', pendientes: await db.cambios.count(), ultima: Date.now() });
   } catch (e) {
     const msg = (e as Error).message;
@@ -102,6 +120,12 @@ export async function sincronizar() {
     corriendo = false;
     if (otraVez) { otraVez = false; setTimeout(sincronizar, 500); }
   }
+}
+
+async function leerRol(usuario: string): Promise<Rol> {
+  const { data, error } = await supabase.from('perfiles').select('rol').eq('user_id', usuario).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.rol as Rol | undefined) ?? 'pendiente';
 }
 
 let espera: ReturnType<typeof setTimeout> | undefined;
@@ -120,7 +144,7 @@ export function iniciarSync() {
   supabase.auth.onAuthStateChange((_evento, s) => {
     const nueva = s && (!sesion || sesion.user.id !== s.user.id);
     sesion = s;
-    poner({ correo: s?.user.email ?? null });
+    poner({ correo: s?.user.email ?? null, ...(s ? {} : { rol: null, solicitudes: 0 }) });
     if (nueva) alEntrar(s!).then(() => pronto(100));
     else pronto(100);
   });
@@ -137,6 +161,31 @@ export async function entrar(correo: string, clave: string) {
   if (error) throw new Error(traducir(error.message));
 }
 
+// Pide una cuenta: queda «pendiente» hasta que el administrador la apruebe.
+export async function crearCuenta(nombre: string, correo: string, clave: string): Promise<boolean> {
+  const { data, error } = await supabase.auth.signUp({
+    email: correo, password: clave,
+    options: { data: { nombre }, emailRedirectTo: location.origin + location.pathname },
+  });
+  if (error) throw new Error(traducir(error.message));
+  return !data.session; // true = primero hay que confirmar el correo
+}
+
+// --- Administración de cuentas (solo el administrador; lo controla también el servidor) ---
+export interface Perfil { user_id: string; correo: string | null; nombre: string | null; rol: Rol; creado: string }
+
+export async function listarPerfiles(): Promise<Perfil[]> {
+  const { data, error } = await supabase.from('perfiles').select('user_id,correo,nombre,rol,creado').order('creado');
+  if (error) throw new Error(error.message);
+  return data as Perfil[];
+}
+
+export async function cambiarRol(usuario: string, rol: Rol) {
+  const { error } = await supabase.from('perfiles').update({ rol }).eq('user_id', usuario);
+  if (error) throw new Error(error.message);
+  pronto(100);
+}
+
 export async function salir() {
   await supabase.auth.signOut();
 }
@@ -144,7 +193,16 @@ export async function salir() {
 function traducir(m: string) {
   if (/invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/email not confirmed/i.test(m)) return 'Todavía no confirmaste tu correo: abre el mensaje que te llegó y pulsa el enlace.';
+  if (/already registered/i.test(m)) return 'Ese correo ya tiene cuenta. Usa «Entrar».';
+  if (/password should be at least/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
   if (/rate limit/i.test(m)) return 'Demasiados intentos seguidos. Espera unos minutos.';
   if (/fetch/i.test(m)) return 'No hay conexión con internet.';
   return m;
+}
+
+// Qué puede hacer quien usa la app. Sin cuenta, los datos son solo de este equipo: puede todo.
+export function usePermisos() {
+  const { rol } = useSync();
+  const admin = rol === null || rol === 'admin';
+  return { puedeBorrar: admin, puedeImportar: admin, esAdmin: rol === 'admin' };
 }
