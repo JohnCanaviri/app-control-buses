@@ -232,3 +232,54 @@ h2 small { color: var(--suave); font-weight: normal; font-size: .8rem; }
   .editor-cab, .editor-fila { grid-template-columns: 64px 14px 80px 1fr 36px; gap: 6px; }
   .editor-fila.gasto { grid-template-columns: 1fr 100px 36px; }
 }
+
+/* --- Pantallas de acceso (iniciar sesión, pedir cuenta, espera) --- */
+.acceso { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: linear-gradient(160deg, var(--navy) 0 38%, var(--fondo) 38%); }
+.acceso-caja { width: 100%; max-width: 400px; background: #fff; border-radius: 16px; padding: 28px 24px; box-shadow: 0 10px 30px rgba(31, 56, 100, .18); }
+.acceso-marca { text-align: center; margin-bottom: 18px; }
+.acceso-marca img { width: 64px; height: 64px; border-radius: 14px; }
+.acceso-marca h1 { font-size: 1.4rem; margin-top: 8px; }
+.acceso-marca p { margin: 2px 0 0; color: var(--suave); font-size: .9rem; }
+.acceso h2 { text-align: center; }
+.acceso-centro { text-align: center; color: var(--suave); }
+.acceso-nota { font-size: .82rem; color: var(--suave); text-align: center; margin: 12px 0 0; }
+.acceso form { display: flex; flex-direction: column; }
+.boton.ancho { width: 100%; margin-top: 16px; padding: 13px; font-size: 1rem; }
+.enlace { display: block; margin: 14px auto 0; background: none; border: none; color: var(--azul); font: inherit; font-size: .9rem; cursor: pointer; text-decoration: underline; }
+
+/* Pestañas (iniciar sesión / pedir cuenta, mes por mes / día por día) */
+.pestanas { display: flex; background: var(--fondo); border-radius: 10px; padding: 4px; gap: 4px; margin-bottom: 16px; }
+.pestanas > * { flex: 1; text-align: center; padding: 10px 8px; border-radius: 8px; border: none; background: none; font: inherit; font-weight: 700; color: var(--suave); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.pestanas > .sel { background: #fff; color: var(--navy); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.contenido > .pestanas { max-width: 420px; }
+
+/* --- Inicio sencillo --- */
+.inicio { max-width: 760px; margin: 0 auto; }
+.saludo { margin: 0; color: var(--suave); }
+.atajos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.atajo { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px 12px; border-radius: var(--radio); color: #fff; text-decoration: none; font-size: 1.3rem; }
+.atajo span { font-size: 1rem; font-weight: 700; }
+.atajo.naranja { background: var(--naranja); }
+.atajo.morado { background: var(--morado); }
+.panel.principal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cifra { display: flex; flex-direction: column; gap: 4px; }
+.cifra span { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); font-weight: 700; }
+.cifra b { font-size: clamp(1.1rem, 3vw, 1.6rem); font-variant-numeric: tabular-nums; color: var(--navy); }
+.cifra.destacada b { font-size: clamp(1.25rem, 3.6vw, 1.9rem); }
+.panel.principal .pie { grid-column: 1 / -1; margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--linea); color: var(--suave); font-size: .88rem; }
+.buses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.bus { display: flex; flex-direction: column; gap: 2px; background: #fff; border: 1px solid var(--linea); border-top: 5px solid var(--navy); border-radius: var(--radio); padding: 12px 14px; text-decoration: none; color: inherit; }
+.bus:hover { background: #f8fafd; }
+.bus-nombre { font-weight: 800; color: var(--navy); }
+.bus b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.bus small { color: var(--suave); }
+.fila-iva { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--morado-t); color: var(--morado); border-radius: var(--radio); padding: 14px 16px; text-decoration: none; font-weight: 600; }
+.vacio.centro { text-align: center; margin-top: 16px; }
+@media (max-width: 900px) {
+  .panel.principal { grid-template-columns: 1fr 1fr; }
+  .cifra.destacada { grid-column: 1 / -1; padding-top: 8px; border-top: 1px dashed var(--linea); }
+  .buses { gap: 8px; }
+  .bus { padding: 10px; }
+  .bus b { font-size: .98rem; }
+  .menu-abajo { grid-template-columns: repeat(5, 1fr) !important; }
+}

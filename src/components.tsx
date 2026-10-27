@@ -50,3 +50,13 @@ export function SelectorMes({ anio, mes, onChange }: { anio: number; mes: number
     </div>
   );
 }
+
+// Las dos vistas de la pestaña «Resúmenes»; al cambiar se conservan bus, año y mes.
+export function VistasResumen({ vista, bus, anio, mes }: { vista: 'anual' | 'diario'; bus: string; anio: number; mes: number }) {
+  return (
+    <div className="pestanas no-imprimir">
+      <a href={`#/resumen?bus=${bus}&anio=${anio}&mes=${mes}`} className={vista === 'anual' ? 'sel' : ''}>📊 Mes por mes</a>
+      <a href={`#/diario?bus=${bus}&anio=${anio}&mes=${mes}`} className={vista === 'diario' ? 'sel' : ''}>📅 Día por día</a>
+    </div>
+  );
+}

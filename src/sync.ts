@@ -10,15 +10,27 @@ export type Fase = 'sin-cuenta' | 'pendiente' | 'rechazado' | 'sin-internet' | '
 export type Rol = 'pendiente' | 'empleado' | 'admin' | 'rechazado';
 export interface EstadoSync {
   fase: Fase; mensaje: string; pendientes: number; ultima: number | null;
+  sesionLista: boolean; // ya se sabe si hay una sesión guardada en este equipo
   correo: string | null;
-  rol: Rol | null; // null = sin cuenta: la app funciona solo en este equipo, con todos los permisos
+  nombre: string | null;
+  rol: Rol | null; // null = todavía no se sabe (o no hay sesión)
   solicitudes: number; // cuentas esperando aprobación (solo lo ve el administrador)
+  recuperar: boolean; // se entró con el enlace de «olvidé mi contraseña»
 }
 
 const TABLAS: Tabla[] = ['viajes', 'facturas'];
 const TANDA = 200;
 
-let estado: EstadoSync = { fase: 'sin-cuenta', mensaje: '', pendientes: 0, ultima: null, correo: null, rol: null, solicitudes: 0 };
+let estado: EstadoSync = {
+  fase: 'sin-cuenta', mensaje: '', pendientes: 0, ultima: null,
+  sesionLista: false, correo: null, nombre: null, rol: null, solicitudes: 0, recuperar: false,
+};
+
+// El último rol conocido se guarda en el equipo: así la app abre sin internet.
+const claveRol = (usuario: string) => `perfil:${usuario}`;
+function rolGuardado(usuario: string): { rol: Rol | null; nombre: string | null } {
+  try { return JSON.parse(localStorage.getItem(claveRol(usuario)) ?? '') ?? { rol: null, nombre: null }; } catch { return { rol: null, nombre: null }; }
+}
 const oyentes = new Set<(e: EstadoSync) => void>();
 function poner(cambio: Partial<EstadoSync>) {
   estado = { ...estado, ...cambio };
@@ -123,9 +135,13 @@ export async function sincronizar() {
 }
 
 async function leerRol(usuario: string): Promise<Rol> {
-  const { data, error } = await supabase.from('perfiles').select('rol').eq('user_id', usuario).maybeSingle();
+  const { data, error } = await supabase.from('perfiles').select('rol,nombre').eq('user_id', usuario).maybeSingle();
   if (error) throw new Error(error.message);
-  return (data?.rol as Rol | undefined) ?? 'pendiente';
+  const rol = (data?.rol as Rol | undefined) ?? 'pendiente';
+  const nombre = (data?.nombre as string | null | undefined) ?? null;
+  try { localStorage.setItem(claveRol(usuario), JSON.stringify({ rol, nombre })); } catch { /* sin almacenamiento */ }
+  poner({ rol, nombre });
+  return rol;
 }
 
 let espera: ReturnType<typeof setTimeout> | undefined;
@@ -141,10 +157,14 @@ async function alEntrar(s: Session) {
 }
 
 export function iniciarSync() {
-  supabase.auth.onAuthStateChange((_evento, s) => {
+  supabase.auth.onAuthStateChange((evento, s) => {
     const nueva = s && (!sesion || sesion.user.id !== s.user.id);
     sesion = s;
-    poner({ correo: s?.user.email ?? null, ...(s ? {} : { rol: null, solicitudes: 0 }) });
+    poner({
+      sesionLista: true, correo: s?.user.email ?? null,
+      ...(s ? (nueva ? rolGuardado(s.user.id) : {}) : { rol: null, nombre: null, solicitudes: 0 }),
+      ...(evento === 'PASSWORD_RECOVERY' ? { recuperar: true } : {}),
+    });
     if (nueva) alEntrar(s!).then(() => pronto(100));
     else pronto(100);
   });
@@ -186,6 +206,18 @@ export async function cambiarRol(usuario: string, rol: Rol) {
   pronto(100);
 }
 
+// «Olvidé mi contraseña»: llega un correo con un enlace que abre la app para poner una nueva.
+export async function recuperarClave(correo: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(correo, { redirectTo: location.origin + location.pathname });
+  if (error) throw new Error(traducir(error.message));
+}
+
+export async function cambiarClave(nueva: string) {
+  const { error } = await supabase.auth.updateUser({ password: nueva });
+  if (error) throw new Error(traducir(error.message));
+  poner({ recuperar: false });
+}
+
 export async function salir() {
   await supabase.auth.signOut();
 }
@@ -200,9 +232,9 @@ function traducir(m: string) {
   return m;
 }
 
-// Qué puede hacer quien usa la app. Sin cuenta, los datos son solo de este equipo: puede todo.
+// Qué puede hacer quien usa la app según su rol.
 export function usePermisos() {
   const { rol } = useSync();
-  const admin = rol === null || rol === 'admin';
-  return { puedeBorrar: admin, puedeImportar: admin, esAdmin: rol === 'admin' };
+  const admin = rol === 'admin';
+  return { puedeBorrar: admin, puedeImportar: admin, esAdmin: admin };
 }

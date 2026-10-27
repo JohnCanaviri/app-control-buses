@@ -2,91 +2,82 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, BUSES, leerConfig } from '../db';
 import { calcularIVA, TASA_IVA_POR_DEFECTO } from '../iva';
-import { calcular, totalizar } from '../calc';
-import { bs, entero, fechaCorta, MESES, rangoMes } from '../format';
-import { Insignia, SelectorMes, Tarjeta } from '../components';
+import { totalizar } from '../calc';
+import { bs, MESES, rangoMes } from '../format';
+import { COLOR_BUS } from '../router';
+import { useSync } from '../sync';
+import { SelectorMes } from '../components';
 
+// Inicio: solo lo esencial del mes. El detalle está en Consulta, Resúmenes y Facturas.
 export default function Inicio() {
+  const { nombre } = useSync();
   const hoy = new Date();
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth() + 1);
   const [desde, hasta] = rangoMes(anio, mes);
   const viajes = useLiveQuery(() => db.viajes.where('fecha').between(desde, hasta, true, true).toArray(), [desde, hasta]);
-  const ultimos = useLiveQuery(() => db.viajes.orderBy('fecha').reverse().limit(5).toArray(), []);
   const facturas = useLiveQuery(() => db.facturas.where('fecha').between(desde, hasta, true, true).toArray(), [desde, hasta]);
   const tasa = useLiveQuery(() => leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO), []);
 
   if (!viajes) return null;
   const t = totalizar(viajes);
   const iva = calcularIVA(viajes, facturas ?? [], tasa ?? TASA_IVA_POR_DEFECTO);
+  const q = `anio=${anio}&mes=${mes}`;
 
   return (
-    <>
+    <div className="inicio">
       <div className="encabezado">
-        <h1>Resumen de {MESES[mes - 1]} {anio}</h1>
+        <div>
+          <p className="saludo">Hola{nombre ? `, ${nombre.split(' ')[0]}` : ''} 👋</p>
+          <h1>{MESES[mes - 1]} {anio}</h1>
+        </div>
         <SelectorMes anio={anio} mes={mes} onChange={(a, m) => { setAnio(a); setMes(m); }} />
       </div>
 
-      <a href="#/nuevo" className="boton-grande">➕ Registrar un viaje</a>
+      <div className="atajos">
+        <a href="#/nuevo" className="atajo naranja">➕<span>Registrar viaje</span></a>
+        <a href={`#/factura/nueva?foto=1&fecha=${anio}-${String(mes).padStart(2, '0')}`} className="atajo morado">📷<span>Escanear factura</span></a>
+      </div>
 
-      <section className="tarjetas">
-        <Tarjeta titulo="Viajes del mes" valor={entero(t.viajes)} nota={t.faltaBoletos ? `${t.faltaBoletos} con falta de boletos` : 'Todos los buses'} />
-        <Tarjeta titulo="Ida normal" valor={bs(t.montoIda)} color="azul" />
-        <Tarjeta titulo="Descuento" valor={bs(t.descuentoIda)} color="azul" />
-        <Tarjeta titulo="Ida neto" valor={bs(t.idaNeto)} color="azul" />
-        <Tarjeta titulo="Llegada (registrado)" valor={bs(t.montoRegistrado)} color="verde" />
-        <Tarjeta titulo="Gastos + otros" valor={bs(t.totalGastos + t.totalOtrosGastos)} color="naranja" />
-        <Tarjeta titulo="Neto final" valor={<span className={t.netoFinal < 0 ? 'negativo' : ''}>{bs(t.netoFinal)}</span>} />
-        <a href={`#/facturas?anio=${anio}&mes=${mes}`} className="tarjeta-enlace">
-          <Tarjeta titulo={iva.saldoFavor ? 'IVA: saldo a favor' : 'IVA a pagar'} valor={bs(iva.saldoFavor || iva.aPagar)} color="morado"
-            nota={`${iva.cantidadFacturas} facturas · ver detalle ›`} />
-        </a>
-      </section>
-
-      <section className="panel">
-        <h2>Por bus</h2>
-        <div className="tabla-wrap">
-          <table className="tabla">
-            <thead><tr><th>Bus</th><th>Viajes</th><th>Ida neto</th><th>Llegada</th><th>Gastos + otros</th><th>Neto final</th><th></th></tr></thead>
-            <tbody>
-              {BUSES.map((b) => {
-                const tb = totalizar(viajes.filter((v) => v.bus === b));
-                return (
-                  <tr key={b}>
-                    <td><b>{b}</b></td>
-                    <td className="num">{tb.viajes}</td>
-                    <td className="num azul-txt">{bs(tb.idaNeto)}</td>
-                    <td className="num">{bs(tb.montoRegistrado)}</td>
-                    <td className="num">{bs(tb.totalGastos + tb.totalOtrosGastos)}</td>
-                    <td className={`num fuerte ${tb.netoFinal < 0 ? 'negativo' : ''}`}>{bs(tb.netoFinal)}</td>
-                    <td><a href={`#/consulta?bus=${b}&anio=${anio}&mes=${mes}`}>Ver ›</a></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <section className="panel principal">
+        <div className="cifra">
+          <span>Ida neto</span>
+          <b className="azul-txt">{bs(t.idaNeto)}</b>
         </div>
+        <div className="cifra">
+          <span>Llegada</span>
+          <b className="verde-txt">{bs(t.montoRegistrado)}</b>
+        </div>
+        <div className="cifra destacada">
+          <span>Neto final</span>
+          <b className={t.netoFinal < 0 ? 'negativo' : ''}>{bs(t.netoFinal)}</b>
+        </div>
+        <p className="pie">
+          {t.viajes} viajes · gastos {bs(t.totalGastos + t.totalOtrosGastos)}
+          {t.faltaBoletos > 0 && <> · <span className="naranja-txt">⚠ {t.faltaBoletos} con falta de boletos</span></>}
+          {' · '}<a href={`#/resumen?bus=Todos&${q}`}>Ver resúmenes ›</a>
+        </p>
       </section>
 
-      <section className="panel">
-        <h2>Últimos viajes registrados</h2>
-        {ultimos && ultimos.length === 0 && (
-          <p className="vacio">Todavía no hay viajes. Pulsa «Registrar un viaje» o <a href="#/importar">trae tus viajes desde el Excel</a>.</p>
-        )}
-        <div className="lista">
-          {ultimos?.map((v) => {
-            const c = calcular(v);
-            return (
-              <a key={v.id} href={`#/viaje/${v.id}`} className="fila-lista">
-                <span className="bus-chip">{v.bus}</span>
-                <span className="fila-info"><b>{fechaCorta(v.fecha)}</b> · {v.destino || 'Sin destino'}</span>
-                <Insignia v={c.verificacion} />
-                <span className={`num fuerte ${c.netoFinal < 0 ? 'negativo' : ''}`}>{bs(c.netoFinal)}</span>
-              </a>
-            );
-          })}
-        </div>
+      <section className="buses">
+        {BUSES.map((b) => {
+          const tb = totalizar(viajes.filter((v) => v.bus === b));
+          return (
+            <a key={b} href={`#/consulta?bus=${b}&${q}`} className="bus" style={{ borderTopColor: COLOR_BUS[b] }}>
+              <span className="bus-nombre">{b}</span>
+              <b className={tb.netoFinal < 0 ? 'negativo' : ''}>{bs(tb.netoFinal)}</b>
+              <small>{tb.viajes} viajes ›</small>
+            </a>
+          );
+        })}
       </section>
-    </>
+
+      <a href={`#/facturas?${q}`} className="fila-iva">
+        <span>🧾 {iva.saldoFavor ? 'IVA: saldo a favor' : 'IVA a pagar'} · {iva.cantidadFacturas} facturas</span>
+        <b>{bs(iva.saldoFavor || iva.aPagar)} ›</b>
+      </a>
+
+      {t.viajes === 0 && <p className="vacio centro">No hay viajes en {MESES[mes - 1]}. Pulsa «Registrar viaje» para empezar.</p>}
+    </div>
   );
 }

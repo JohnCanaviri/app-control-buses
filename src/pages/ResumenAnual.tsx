@@ -4,7 +4,7 @@ import { totalizar } from '../calc';
 import { filtrarBus, porMes } from '../resumen';
 import { bs, entero, MESES } from '../format';
 import { COLOR_BUS, ir, parametros, useRuta } from '../router';
-import { Botones, Tarjeta } from '../components';
+import { Botones, Tarjeta, VistasResumen } from '../components';
 import Grafico from '../Grafico';
 
 const TODOS = 'Todos';
@@ -14,7 +14,8 @@ export default function ResumenAnual() {
   const q = parametros(useRuta());
   const anio = Number(q.get('anio')) || new Date().getFullYear();
   const bus = q.get('bus') ?? TODOS;
-  const cambiar = (b: string, a: number) => ir(`/resumen?bus=${b}&anio=${a}`);
+  const mes = Number(q.get('mes')) || new Date().getMonth() + 1; // se recuerda para la vista «Día por día»
+  const cambiar = (b: string, a: number) => ir(`/resumen?bus=${b}&anio=${a}&mes=${mes}`);
 
   const delAnio = useLiveQuery(() => db.viajes.where('fecha').between(`${anio}-01-01`, `${anio}-12-31`, true, true).toArray(), [anio]);
   if (!delAnio) return null;
@@ -26,8 +27,9 @@ export default function ResumenAnual() {
 
   return (
     <>
+      <VistasResumen vista="anual" bus={bus} anio={anio} mes={mes} />
       <div className="encabezado">
-        <h1>Resumen del año {anio} — {bus === TODOS ? 'todos los buses' : bus}</h1>
+        <h1>{anio} mes por mes — {bus === TODOS ? 'todos los buses' : bus}</h1>
         <div className="acciones fila no-imprimir">
           <div className="selector-mes">
             <button type="button" onClick={() => cambiar(bus, anio - 1)} aria-label="Año anterior">‹</button>
@@ -39,7 +41,6 @@ export default function ResumenAnual() {
       </div>
       <div className="filtros no-imprimir">
         <Botones opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio)} />
-        <a href={`#/diario?bus=${bus}&anio=${anio}&mes=${new Date().getMonth() + 1}`} className="boton">📅 Ver resumen diario</a>
       </div>
 
       <section className="tarjetas">

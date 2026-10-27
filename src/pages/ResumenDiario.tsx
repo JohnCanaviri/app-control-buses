@@ -4,7 +4,7 @@ import { totalizar } from '../calc';
 import { filtrarBus, porDia } from '../resumen';
 import { bs, diaSemana, entero, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
-import { Botones, SelectorMes, Tarjeta } from '../components';
+import { Botones, SelectorMes, Tarjeta, VistasResumen } from '../components';
 import Grafico from '../Grafico';
 
 const TODOS = 'Todos';
@@ -29,8 +29,9 @@ export default function ResumenDiario() {
 
   return (
     <>
+      <VistasResumen vista="diario" bus={bus} anio={anio} mes={mes} />
       <div className="encabezado">
-        <h1>Resumen diario — {bus === TODOS ? 'todos los buses' : bus} · {MESES[mes - 1]} {anio}</h1>
+        <h1>Día por día — {bus === TODOS ? 'todos los buses' : bus} · {MESES[mes - 1]} {anio}</h1>
         <button type="button" className="boton no-imprimir" onClick={() => print()}>🖨 Imprimir / PDF</button>
       </div>
       <div className="filtros no-imprimir">
