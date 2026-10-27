@@ -137,14 +137,6 @@ export async function entrar(correo: string, clave: string) {
   if (error) throw new Error(traducir(error.message));
 }
 
-export async function crearCuenta(correo: string, clave: string): Promise<boolean> {
-  const { data, error } = await supabase.auth.signUp({
-    email: correo, password: clave, options: { emailRedirectTo: location.origin + location.pathname },
-  });
-  if (error) throw new Error(traducir(error.message));
-  return !data.session; // true = hay que confirmar el correo
-}
-
 export async function salir() {
   await supabase.auth.signOut();
 }
@@ -152,8 +144,6 @@ export async function salir() {
 function traducir(m: string) {
   if (/invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/email not confirmed/i.test(m)) return 'Todavía no confirmaste tu correo: abre el mensaje que te llegó y pulsa el enlace.';
-  if (/already registered/i.test(m)) return 'Ese correo ya tiene cuenta. Usa «Entrar».';
-  if (/password should be at least/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
   if (/rate limit/i.test(m)) return 'Demasiados intentos seguidos. Espera unos minutos.';
   if (/fetch/i.test(m)) return 'No hay conexión con internet.';
   return m;

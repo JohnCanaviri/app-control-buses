@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { crearCuenta, entrar, salir, sincronizar, useSync } from './sync';
+import { entrar, salir, sincronizar, useSync } from './sync';
 
 const hora = (t: number | null) => (t ? new Date(t).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) : '—');
 
@@ -61,15 +61,9 @@ export function PanelCuenta() {
         </div>
         <div className="acciones fila">
           <button type="submit" className="boton primario" disabled={ocupado}>Entrar</button>
-          <button type="button" className="boton" disabled={ocupado || !correo || clave.length < 6}
-            onClick={() => hacer(async () => {
-              const confirmar = await crearCuenta(correo.trim(), clave);
-              setMsg(confirmar
-                ? '✔ Cuenta creada. Te llegó un correo de Supabase: ábrelo y pulsa el enlace para confirmarla. Después vuelve aquí y pulsa «Entrar».'
-                : '✔ Cuenta creada y sesión iniciada.');
-            })}>Crear cuenta (solo la primera vez)</button>
         </div>
       </form>
+      <p><small>Solo pueden entrar las cuentas que el administrador crea en Supabase. Si necesitas una cuenta, pídesela al administrador.</small></p>
     </section>
   );
 }
