@@ -12,3 +12,8 @@ export function useRuta() {
 }
 
 export const ir = (ruta: string) => { location.hash = ruta; };
+
+// Lee «?bus=TDS&anio=2026&mes=10» de la ruta actual.
+export const parametros = (ruta: string) => new URLSearchParams(ruta.split('?')[1] ?? '');
+
+export const COLOR_BUS: Record<string, string> = { TDS: '#2e75b6', PIN: '#548235', PKS: '#c55a11' };

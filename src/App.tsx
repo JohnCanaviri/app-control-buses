@@ -3,14 +3,19 @@ import { useRuta } from './router';
 import Inicio from './pages/Inicio';
 import EditarViaje from './pages/EditarViaje';
 import Consulta from './pages/Consulta';
+import ResumenAnual from './pages/ResumenAnual';
+import ResumenDiario from './pages/ResumenDiario';
 import Ajustes from './pages/Ajustes';
 import Importar from './pages/Importar';
 
+// «celular: false» = no va en la barra de abajo del celular (se llega por el botón de arriba).
 const MENU = [
   { ruta: '/', texto: 'Inicio', icono: '🏠' },
   { ruta: '/nuevo', texto: 'Nuevo viaje', icono: '➕' },
   { ruta: '/consulta', texto: 'Consulta', icono: '🔎' },
-  { ruta: '/ajustes', texto: 'Respaldo', icono: '💾' },
+  { ruta: '/resumen', texto: 'Resumen', icono: '📊' },
+  { ruta: '/diario', texto: 'Diario', icono: '📅' },
+  { ruta: '/ajustes', texto: 'Respaldo', icono: '💾', celular: false },
 ];
 
 function useEnLinea() {
@@ -26,17 +31,20 @@ function useEnLinea() {
 export default function App() {
   const ruta = useRuta();
   const enLinea = useEnLinea();
+  const camino = ruta.split('?')[0];
 
   let pagina;
-  if (ruta === '/nuevo') pagina = <EditarViaje key="nuevo" />;
-  else if (ruta.startsWith('/viaje/')) pagina = <EditarViaje key={ruta} id={decodeURIComponent(ruta.slice(7))} />;
-  else if (ruta.startsWith('/consulta')) pagina = <Consulta />;
-  else if (ruta === '/ajustes') pagina = <Ajustes />;
-  else if (ruta === '/importar') pagina = <Importar />;
+  if (camino === '/nuevo') pagina = <EditarViaje key="nuevo" />;
+  else if (camino.startsWith('/viaje/')) pagina = <EditarViaje key={camino} id={decodeURIComponent(camino.slice(7))} />;
+  else if (camino === '/consulta') pagina = <Consulta />;
+  else if (camino === '/resumen') pagina = <ResumenAnual />;
+  else if (camino === '/diario') pagina = <ResumenDiario />;
+  else if (camino === '/ajustes') pagina = <Ajustes />;
+  else if (camino === '/importar') pagina = <Importar />;
   else pagina = <Inicio />;
 
-  const activo = (r: string) => (r === '/' ? ruta === '/' : ruta.startsWith(r) || (r === '/ajustes' && ruta === '/importar'));
-  const enlaces = MENU.map((m) => (
+  const activo = (r: string) => camino === r || (r === '/ajustes' && camino === '/importar');
+  const enlaces = (celular: boolean) => MENU.filter((m) => !celular || m.celular !== false).map((m) => (
     <a key={m.ruta} href={`#${m.ruta}`} className={activo(m.ruta) ? 'activo' : ''}>
       <span className="icono">{m.icono}</span>
       <span>{m.texto}</span>
@@ -47,11 +55,12 @@ export default function App() {
     <div className="app">
       <header className="barra">
         <a href="#/" className="marca"><img src="/icon.svg" alt="" /> Control de Buses</a>
-        <nav className="menu-arriba">{enlaces}</nav>
+        <nav className="menu-arriba">{enlaces(false)}</nav>
         <span className={`estado ${enLinea ? 'on' : 'off'}`}>{enLinea ? 'En línea' : 'Sin internet'}</span>
+        <a href="#/ajustes" className="solo-cel-boton" aria-label="Respaldo">💾</a>
       </header>
       <main className="contenido">{pagina}</main>
-      <nav className="menu-abajo">{enlaces}</nav>
+      <nav className="menu-abajo">{enlaces(true)}</nav>
     </div>
   );
 }

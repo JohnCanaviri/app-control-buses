@@ -23,7 +23,8 @@ small { color: var(--suave); }
 .marca { display: flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
 .marca img { width: 30px; height: 30px; border-radius: 7px; background: #fff; }
 .menu-arriba { display: flex; gap: 4px; margin-left: 12px; }
-.menu-arriba a { color: #dbe4f3; text-decoration: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; }
+.menu-arriba a { color: #dbe4f3; text-decoration: none; padding: 8px 12px; border-radius: 8px; font-weight: 600; white-space: nowrap; }
+@media (max-width: 1180px) { .menu-arriba .icono { display: none; } .menu-arriba { margin-left: 0; } }
 .menu-arriba a:hover { background: rgba(255,255,255,.1); }
 .menu-arriba a.activo { background: #fff; color: var(--navy); }
 .menu-arriba .icono { margin-right: 6px; }
@@ -137,12 +138,53 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--azul); bord
 .viaje-cel-datos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: .72rem; color: var(--suave); }
 .viaje-cel-datos b { display: block; font-size: .92rem; color: var(--texto); font-variant-numeric: tabular-nums; }
 
+/* --- Gráficos --- */
+.graficos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.graficos .panel { margin-bottom: 0; }
+.graficos + * { margin-top: 16px; }
+.grafico { margin: 0; }
+.grafico figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 8px; color: var(--navy); }
+.leyenda { display: flex; gap: 12px; flex-wrap: wrap; font-size: .8rem; color: var(--suave); }
+.leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.grafico svg { display: block; max-width: 100%; }
+.grafico .guia { stroke: #e6e9ef; }
+.grafico .eje0 { stroke: #8a93a3; }
+.grafico .marca { font-size: 12px; fill: #6b7280; }
+.grafico .zona { fill: transparent; }
+.grafico .clic { cursor: pointer; }
+.grafico .clic:hover .zona { fill: #f1f5fb; }
+.tabla tr.apagada td { color: #9aa1ad; }
+.tabla tr.finde td { background: #f3f6fb !important; }
+.tabla tr.finde td:nth-child(2) { color: var(--azul); font-weight: 700; }
+h2 small { color: var(--suave); font-weight: normal; font-size: .8rem; }
+.solo-cel-boton { display: none; }
+
+/* --- Imprimir / guardar como PDF --- */
+@media print {
+  @page { size: landscape; margin: 10mm; }
+  body, .app { background: #fff; }
+  .barra, .menu-abajo, .no-imprimir, .boton-grande { display: none !important; }
+  .contenido { max-width: none; padding: 0; }
+  .panel, .tarjeta, .tabla-wrap { break-inside: avoid; border-color: #ccc; }
+  .tabla { font-size: 9pt; }
+  .tabla-wrap { overflow: visible; }
+  .graficos { grid-template-columns: 1fr 1fr; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* --- Celular --- */
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .menu-arriba { display: none; }
+  .solo-cel-boton { display: block; text-decoration: none; font-size: 1.3rem; }
+  .estado { margin-left: auto; }
+  .graficos { grid-template-columns: 1fr; }
+  .filtros .selector-mes { width: 100%; }
+  .selector-mes select { flex: 1; min-width: 0; }
+  .selector-mes input { width: 74px; flex: none; }
+  .selector-mes button { flex: none; }
   .barra { padding: 10px 16px; }
   .contenido { padding: 14px 12px 90px; }
-  .menu-abajo { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background: #fff; border-top: 1px solid var(--linea); padding-bottom: env(safe-area-inset-bottom); }
+  .menu-abajo { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background: #fff; border-top: 1px solid var(--linea); padding-bottom: env(safe-area-inset-bottom); }
   .menu-abajo a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; text-decoration: none; color: var(--suave); font-size: .72rem; font-weight: 600; }
   .menu-abajo a .icono { font-size: 1.3rem; }
   .menu-abajo a.activo { color: var(--navy); background: var(--azul-t); }

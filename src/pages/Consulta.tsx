@@ -33,6 +33,10 @@ export default function Consulta() {
     <>
       <div className="encabezado">
         <h1>Consulta — {bus} · {MESES[mes - 1]} {anio}</h1>
+        <div className="acciones fila no-imprimir">
+          <a href={`#/diario?bus=${bus}&anio=${anio}&mes=${mes}`} className="boton">📅 Día por día</a>
+          <button type="button" className="boton" onClick={() => print()}>🖨 Imprimir / PDF</button>
+        </div>
       </div>
       <div className="filtros">
         <Botones opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio, mes)} />
