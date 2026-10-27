@@ -5,6 +5,7 @@ import { hoyISO } from '../format';
 
 export default function Ajustes() {
   const total = useLiveQuery(() => db.viajes.count(), []);
+  const facturas = useLiveQuery(() => db.facturas.count(), []);
   const [protegido, setProtegido] = useState<boolean | null>(null);
   const [mensaje, setMensaje] = useState('');
 
@@ -16,7 +17,7 @@ export default function Ajustes() {
     const a = document.createElement('a');
     a.href = url; a.download = `respaldo-buses-${hoyISO()}.json`; a.click();
     URL.revokeObjectURL(url);
-    setMensaje(`✔ Respaldo descargado con ${r.viajes.length} viajes.`);
+    setMensaje(`✔ Respaldo descargado con ${r.viajes.length} viajes y ${r.facturas?.length ?? 0} facturas.`);
   }
 
   async function restaurar(archivo: File | undefined) {
@@ -38,11 +39,17 @@ export default function Ajustes() {
 
       <section className="panel">
         <h2>Tus datos</h2>
-        <p>Hay <b>{total ?? '…'}</b> viajes guardados en este dispositivo. La app funciona sin internet: todo se guarda aquí mismo.</p>
+        <p>Hay <b>{total ?? '…'}</b> viajes y <b>{facturas ?? '…'}</b> facturas guardados en este dispositivo. La app funciona sin internet: todo se guarda aquí mismo.</p>
         <p>
           Protección contra borrado del navegador:{' '}
           {protegido === null ? '…' : protegido ? <b className="verde-txt">activada</b> : <b className="naranja-txt">no disponible en este navegador</b>}
         </p>
+      </section>
+
+      <section className="panel">
+        <h2>Traer datos de tu Excel</h2>
+        <p>Pasa a la app los viajes y facturas de tu archivo control_buses.xlsx, comprobando que los totales cuadren.</p>
+        <a href="#/importar" className="boton primario">📥 Importar desde Excel</a>
       </section>
 
       <section className="panel">

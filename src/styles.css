@@ -61,6 +61,10 @@ small { color: var(--suave); }
 .acciones.fila { flex-direction: row; flex-wrap: wrap; }
 .aviso { background: var(--verde-t); border: 1px solid #a9d08e; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; cursor: pointer; }
 .vacio { color: var(--suave); }
+.aviso.error { background: var(--naranja-t); border-color: #f4b183; }
+.boton.archivo { margin-top: 4px; }
+a.boton { text-decoration: none; }
+.avisos { margin: 0; padding-left: 20px; line-height: 1.6; }
 
 /* --- Selectores --- */
 .botones { display: flex; flex-wrap: wrap; gap: 6px; }

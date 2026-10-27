@@ -4,6 +4,7 @@ import Inicio from './pages/Inicio';
 import EditarViaje from './pages/EditarViaje';
 import Consulta from './pages/Consulta';
 import Ajustes from './pages/Ajustes';
+import Importar from './pages/Importar';
 
 const MENU = [
   { ruta: '/', texto: 'Inicio', icono: '🏠' },
@@ -31,9 +32,10 @@ export default function App() {
   else if (ruta.startsWith('/viaje/')) pagina = <EditarViaje key={ruta} id={decodeURIComponent(ruta.slice(7))} />;
   else if (ruta.startsWith('/consulta')) pagina = <Consulta />;
   else if (ruta === '/ajustes') pagina = <Ajustes />;
+  else if (ruta === '/importar') pagina = <Importar />;
   else pagina = <Inicio />;
 
-  const activo = (r: string) => (r === '/' ? ruta === '/' : ruta.startsWith(r));
+  const activo = (r: string) => (r === '/' ? ruta === '/' : ruta.startsWith(r) || (r === '/ajustes' && ruta === '/importar'));
   const enlaces = MENU.map((m) => (
     <a key={m.ruta} href={`#${m.ruta}`} className={activo(m.ruta) ? 'activo' : ''}>
       <span className="icono">{m.icono}</span>

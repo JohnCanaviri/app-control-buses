@@ -62,7 +62,9 @@ export default function Inicio() {
 
       <section className="panel">
         <h2>Últimos viajes registrados</h2>
-        {ultimos && ultimos.length === 0 && <p className="vacio">Todavía no hay viajes. Pulsa «Registrar un viaje» para empezar.</p>}
+        {ultimos && ultimos.length === 0 && (
+          <p className="vacio">Todavía no hay viajes. Pulsa «Registrar un viaje» o <a href="#/importar">trae tus viajes desde el Excel</a>.</p>
+        )}
         <div className="lista">
           {ultimos?.map((v) => {
             const c = calcular(v);
