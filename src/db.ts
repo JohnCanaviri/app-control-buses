@@ -9,22 +9,32 @@ export interface Factura {
   concepto: string;
   monto: number;
   observaciones: string;
+  foto?: string; // imagen reducida (data URL JPEG)
   creado: number;
   actualizado: number;
 }
+
+interface Config { clave: string; valor: unknown }
 
 // Base de datos dentro del navegador (IndexedDB): funciona sin internet.
 class BusesDB extends Dexie {
   viajes!: Table<Viaje, string>;
   facturas!: Table<Factura, string>;
+  config!: Table<Config, string>;
   constructor() {
     super('control-buses');
     this.version(1).stores({ viajes: 'id, bus, fecha, [bus+fecha]' });
     this.version(2).stores({ facturas: 'id, fecha' });
+    this.version(3).stores({ config: 'clave' });
   }
 }
 
 export const db = new BusesDB();
+
+export async function leerConfig<T>(clave: string, porDefecto: T): Promise<T> {
+  return ((await db.config.get(clave))?.valor as T) ?? porDefecto;
+}
+export const guardarConfig = (clave: string, valor: unknown) => db.config.put({ clave, valor });
 export const BUSES = ['TDS', 'PIN', 'PKS'];
 
 // Pide al navegador que no borre los datos aunque falte espacio.

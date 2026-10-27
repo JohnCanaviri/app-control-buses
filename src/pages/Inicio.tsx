@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, BUSES } from '../db';
+import { db, BUSES, leerConfig } from '../db';
+import { calcularIVA, TASA_IVA_POR_DEFECTO } from '../iva';
 import { calcular, totalizar } from '../calc';
 import { bs, entero, fechaCorta, MESES, rangoMes } from '../format';
 import { Insignia, SelectorMes, Tarjeta } from '../components';
@@ -12,9 +13,12 @@ export default function Inicio() {
   const [desde, hasta] = rangoMes(anio, mes);
   const viajes = useLiveQuery(() => db.viajes.where('fecha').between(desde, hasta, true, true).toArray(), [desde, hasta]);
   const ultimos = useLiveQuery(() => db.viajes.orderBy('fecha').reverse().limit(5).toArray(), []);
+  const facturas = useLiveQuery(() => db.facturas.where('fecha').between(desde, hasta, true, true).toArray(), [desde, hasta]);
+  const tasa = useLiveQuery(() => leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO), []);
 
   if (!viajes) return null;
   const t = totalizar(viajes);
+  const iva = calcularIVA(viajes, facturas ?? [], tasa ?? TASA_IVA_POR_DEFECTO);
 
   return (
     <>
@@ -33,6 +37,10 @@ export default function Inicio() {
         <Tarjeta titulo="Llegada (registrado)" valor={bs(t.montoRegistrado)} color="verde" />
         <Tarjeta titulo="Gastos + otros" valor={bs(t.totalGastos + t.totalOtrosGastos)} color="naranja" />
         <Tarjeta titulo="Neto final" valor={<span className={t.netoFinal < 0 ? 'negativo' : ''}>{bs(t.netoFinal)}</span>} />
+        <a href={`#/facturas?anio=${anio}&mes=${mes}`} className="tarjeta-enlace">
+          <Tarjeta titulo={iva.saldoFavor ? 'IVA: saldo a favor' : 'IVA a pagar'} valor={bs(iva.saldoFavor || iva.aPagar)} color="morado"
+            nota={`${iva.cantidadFacturas} facturas · ver detalle ›`} />
+        </a>
       </section>
 
       <section className="panel">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { crearRespaldo, db, restaurarRespaldo, type Respaldo } from '../db';
+import { crearRespaldo, db, leerConfig, restaurarRespaldo, type Respaldo } from '../db';
+import { TASA_IVA_POR_DEFECTO } from '../iva';
 import { hoyISO } from '../format';
 
 export default function Ajustes() {
@@ -18,6 +19,14 @@ export default function Ajustes() {
     a.href = url; a.download = `respaldo-buses-${hoyISO()}.json`; a.click();
     URL.revokeObjectURL(url);
     setMensaje(`✔ Respaldo descargado con ${r.viajes.length} viajes y ${r.facturas?.length ?? 0} facturas.`);
+  }
+
+  async function exportar() {
+    const [{ exportarTodo }, viajes, facturas, tasa] = await Promise.all([
+      import('../exportar'), db.viajes.toArray(), db.facturas.toArray(), leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO),
+    ]);
+    exportarTodo(viajes, facturas, tasa);
+    setMensaje(`✔ Excel descargado con ${viajes.length} viajes y ${facturas.length} facturas.`);
   }
 
   async function restaurar(archivo: File | undefined) {
@@ -49,7 +58,11 @@ export default function Ajustes() {
       <section className="panel">
         <h2>Traer datos de tu Excel</h2>
         <p>Pasa a la app los viajes y facturas de tu archivo control_buses.xlsx, comprobando que los totales cuadren.</p>
-        <a href="#/importar" className="boton primario">📥 Importar desde Excel</a>
+        <div className="acciones fila">
+          <a href="#/importar" className="boton primario">📥 Importar desde Excel</a>
+          <button type="button" className="boton" onClick={exportar}>📤 Exportar todo a Excel</button>
+        </div>
+        <p><small>El Excel exportado tiene las mismas columnas que tu hoja Registro (más los cálculos) y se puede volver a importar.</small></p>
       </section>
 
       <section className="panel">

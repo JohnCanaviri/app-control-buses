@@ -5,6 +5,8 @@ import EditarViaje from './pages/EditarViaje';
 import Consulta from './pages/Consulta';
 import ResumenAnual from './pages/ResumenAnual';
 import ResumenDiario from './pages/ResumenDiario';
+import Facturas from './pages/Facturas';
+import EditarFactura from './pages/EditarFactura';
 import Ajustes from './pages/Ajustes';
 import Importar from './pages/Importar';
 
@@ -15,6 +17,7 @@ const MENU = [
   { ruta: '/consulta', texto: 'Consulta', icono: '🔎' },
   { ruta: '/resumen', texto: 'Resumen', icono: '📊' },
   { ruta: '/diario', texto: 'Diario', icono: '📅' },
+  { ruta: '/facturas', texto: 'Facturas', icono: '🧾' },
   { ruta: '/ajustes', texto: 'Respaldo', icono: '💾', celular: false },
 ];
 
@@ -39,11 +42,15 @@ export default function App() {
   else if (camino === '/consulta') pagina = <Consulta />;
   else if (camino === '/resumen') pagina = <ResumenAnual />;
   else if (camino === '/diario') pagina = <ResumenDiario />;
+  else if (camino === '/facturas') pagina = <Facturas />;
+  else if (camino === '/factura/nueva') pagina = <EditarFactura key={ruta} />;
+  else if (camino.startsWith('/factura/')) pagina = <EditarFactura key={camino} id={decodeURIComponent(camino.slice(9))} />;
   else if (camino === '/ajustes') pagina = <Ajustes />;
   else if (camino === '/importar') pagina = <Importar />;
   else pagina = <Inicio />;
 
-  const activo = (r: string) => camino === r || (r === '/ajustes' && camino === '/importar');
+  const activo = (r: string) => camino === r || (r === '/ajustes' && camino === '/importar')
+    || (r === '/facturas' && camino.startsWith('/factura/')) || (r === '/nuevo' && camino.startsWith('/viaje/'));
   const enlaces = (celular: boolean) => MENU.filter((m) => !celular || m.celular !== false).map((m) => (
     <a key={m.ruta} href={`#${m.ruta}`} className={activo(m.ruta) ? 'activo' : ''}>
       <span className="icono">{m.icono}</span>

@@ -138,6 +138,31 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--azul); bord
 .viaje-cel-datos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: .72rem; color: var(--suave); }
 .viaje-cel-datos b { display: block; font-size: .92rem; color: var(--texto); font-variant-numeric: tabular-nums; }
 
+/* --- Facturas e IVA --- */
+:root { --morado: #7030a0; --morado-t: #eae0f4; }
+.morado-txt { color: var(--morado); }
+.tarjeta.morado { border-top-color: var(--morado); }
+.tarjeta.morado .tarjeta-valor { color: var(--morado); }
+.tarjeta-enlace { text-decoration: none; color: inherit; }
+.tarjeta-enlace .tarjeta { height: 100%; }
+.tarjeta-enlace:hover .tarjeta { background: var(--morado-t); }
+.borde-morado { border-top: 4px solid var(--morado); }
+.boton-grande.morado { background: var(--morado); margin-bottom: 0; flex: 1; }
+.tasa { display: flex; align-items: center; gap: 8px; }
+.tasa label { margin: 0; }
+.tasa input { width: 80px; font-weight: 700; text-align: center; }
+.iva-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
+.iva-tarjetas { display: grid; gap: 12px; }
+.iva-tarjetas .tarjeta-valor { font-size: 1.8rem; }
+.tabla-iva td:first-child { font-weight: 700; white-space: normal; }
+.tabla tr.fila-azul td { background: var(--azul-t) !important; color: var(--navy); }
+.tabla tr.fila-verde td { background: var(--verde-t) !important; color: #375623; }
+.tabla tr.fila-morada td { background: var(--morado-t) !important; color: var(--morado); }
+.foto-factura { display: block; margin-top: 12px; max-width: 220px; max-height: 260px; border-radius: 8px; border: 1px solid var(--linea); cursor: zoom-in; object-fit: contain; }
+.foto-factura.grande { max-width: 100%; max-height: none; cursor: zoom-out; }
+.monto-grande { font-size: 1.3rem; font-weight: 800; }
+.boton:disabled { opacity: .5; cursor: wait; }
+
 /* --- Gráficos --- */
 .graficos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .graficos .panel { margin-bottom: 0; }
@@ -178,13 +203,19 @@ h2 small { color: var(--suave); font-weight: normal; font-size: .8rem; }
   .solo-cel-boton { display: block; text-decoration: none; font-size: 1.3rem; }
   .estado { margin-left: auto; }
   .graficos { grid-template-columns: 1fr; }
+  .iva-grid { grid-template-columns: 1fr; }
+  .iva-tarjetas { grid-template-columns: 1fr 1fr; order: -1; }
+  .tabla-iva { font-size: .8rem; }
+  .tabla-iva td, .tabla-iva th { padding: 6px 5px; }
+  .iva-tarjetas .tarjeta-valor { font-size: 1.2rem; }
+  .menu-abajo a { font-size: .66rem; }
   .filtros .selector-mes { width: 100%; }
   .selector-mes select { flex: 1; min-width: 0; }
   .selector-mes input { width: 74px; flex: none; }
   .selector-mes button { flex: none; }
   .barra { padding: 10px 16px; }
   .contenido { padding: 14px 12px 90px; }
-  .menu-abajo { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background: #fff; border-top: 1px solid var(--linea); padding-bottom: env(safe-area-inset-bottom); }
+  .menu-abajo { display: grid; grid-template-columns: repeat(6, 1fr); position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background: #fff; border-top: 1px solid var(--linea); padding-bottom: env(safe-area-inset-bottom); }
   .menu-abajo a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; text-decoration: none; color: var(--suave); font-size: .72rem; font-weight: 600; }
   .menu-abajo a .icono { font-size: 1.3rem; }
   .menu-abajo a.activo { color: var(--navy); background: var(--azul-t); }
