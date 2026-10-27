@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // En GitHub Pages la app vive en «/<nombre-del-repositorio>/»; lo indica la variable BASE al publicar.
+  base: process.env.BASE ?? '/',
   plugins: [
     react(),
     VitePWA({

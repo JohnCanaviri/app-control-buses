@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, BUSES } from '../db';
+import { db, BUSES, eliminar as borrarDatos, guardar as guardarDatos } from '../db';
 import { calcular, type Viaje } from '../calc';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir } from '../router';
@@ -92,7 +92,7 @@ export default function EditarViaje({ id }: { id?: string }) {
     if (!viaje.boletosIda.length && !viaje.montoRegistrado && !viaje.gastos.length) {
       setAviso('Anota al menos los boletos de ida o el monto que trajeron.'); return;
     }
-    await db.viajes.put(viaje);
+    await guardarDatos('viajes', [viaje]);
     try { localStorage.setItem(BUS_GUARDADO, b.bus); } catch { /* sin almacenamiento */ }
     if (otro) { setBase(undefined); setB({ ...nuevoBorrador(), bus: b.bus, fecha: b.fecha }); setAviso('✔ Viaje guardado. Puedes registrar otro.'); window.scrollTo(0, 0); }
     else ir(`/consulta?bus=${b.bus}&anio=${b.fecha.slice(0, 4)}&mes=${Number(b.fecha.slice(5, 7))}`);
@@ -101,7 +101,7 @@ export default function EditarViaje({ id }: { id?: string }) {
   async function eliminar() {
     if (!base) return;
     if (!confirm(`¿Eliminar el viaje de ${base.bus} del ${base.fecha}? No se puede deshacer.`)) return;
-    await db.viajes.delete(base.id);
+    await borrarDatos('viajes', [base.id]);
     history.back();
   }
 

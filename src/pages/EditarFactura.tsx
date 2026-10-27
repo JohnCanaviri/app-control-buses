@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { db, leerConfig, type Factura } from '../db';
+import { db, eliminar as borrarDatos, guardar as guardarDatos, leerConfig, type Factura } from '../db';
 import { TASA_IVA_POR_DEFECTO } from '../iva';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir, parametros, useRuta } from '../router';
@@ -69,11 +69,11 @@ export default function EditarFactura({ id }: { id?: string }) {
     if (!b.fecha) { setEstado('Falta la fecha.'); return; }
     if (!monto) { setEstado('Falta el monto de la factura.'); return; }
     const ahora = Date.now();
-    await db.facturas.put({
+    await guardarDatos('facturas', [{
       id: base?.id ?? uid(), fecha: b.fecha, numero: b.numero.trim(), proveedor: b.proveedor.trim(),
       concepto: b.concepto.trim(), monto, observaciones: b.observaciones.trim(), foto: b.foto,
       creado: base?.creado ?? ahora, actualizado: ahora,
-    });
+    }]);
     if (otra) {
       setB({ fecha: b.fecha, numero: '', proveedor: '', concepto: '', monto: '', observaciones: '' });
       setEstado('✔ Factura guardada. Puedes escanear otra.');
@@ -83,7 +83,7 @@ export default function EditarFactura({ id }: { id?: string }) {
 
   async function eliminar() {
     if (!base || !confirm(`¿Eliminar la factura N° ${base.numero || '(sin número)'} de ${bs(base.monto)}? No se puede deshacer.`)) return;
-    await db.facturas.delete(base.id);
+    await borrarDatos('facturas', [base.id]);
     history.back();
   }
 

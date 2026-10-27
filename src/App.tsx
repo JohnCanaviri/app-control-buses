@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { useRuta } from './router';
+import { EstadoNube } from './Cuenta';
 import Inicio from './pages/Inicio';
 import EditarViaje from './pages/EditarViaje';
 import Consulta from './pages/Consulta';
@@ -18,22 +18,11 @@ const MENU = [
   { ruta: '/resumen', texto: 'Resumen', icono: '📊' },
   { ruta: '/diario', texto: 'Diario', icono: '📅' },
   { ruta: '/facturas', texto: 'Facturas', icono: '🧾' },
-  { ruta: '/ajustes', texto: 'Respaldo', icono: '💾', celular: false },
+  { ruta: '/ajustes', texto: 'Cuenta', icono: '💾', celular: false },
 ];
-
-function useEnLinea() {
-  const [enLinea, setEnLinea] = useState(navigator.onLine);
-  useEffect(() => {
-    const on = () => setEnLinea(true), off = () => setEnLinea(false);
-    window.addEventListener('online', on); window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
-  return enLinea;
-}
 
 export default function App() {
   const ruta = useRuta();
-  const enLinea = useEnLinea();
   const camino = ruta.split('?')[0];
 
   let pagina;
@@ -61,9 +50,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="barra">
-        <a href="#/" className="marca"><img src="/icon.svg" alt="" /> Control de Buses</a>
+        <a href="#/" className="marca"><img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" /> Control de Buses</a>
         <nav className="menu-arriba">{enlaces(false)}</nav>
-        <span className={`estado ${enLinea ? 'on' : 'off'}`}>{enLinea ? 'En línea' : 'Sin internet'}</span>
+        <EstadoNube />
         <a href="#/ajustes" className="solo-cel-boton" aria-label="Respaldo">💾</a>
       </header>
       <main className="contenido">{pagina}</main>

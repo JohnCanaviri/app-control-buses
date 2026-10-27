@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { crearRespaldo, db, leerConfig, restaurarRespaldo, type Respaldo } from '../db';
 import { TASA_IVA_POR_DEFECTO } from '../iva';
+import { PanelCuenta } from '../Cuenta';
 import { hoyISO } from '../format';
 
 export default function Ajustes() {
@@ -43,8 +44,10 @@ export default function Ajustes() {
 
   return (
     <>
-      <div className="encabezado"><h1>Respaldo de datos</h1></div>
+      <div className="encabezado"><h1>Cuenta y respaldo</h1></div>
       {mensaje && <div className="aviso" onClick={() => setMensaje('')}>{mensaje}</div>}
+
+      <PanelCuenta />
 
       <section className="panel">
         <h2>Tus datos</h2>

@@ -31,6 +31,8 @@ small { color: var(--suave); }
 .estado { margin-left: auto; font-size: .78rem; padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
 .estado.on { background: #e2efda; color: #375623; }
 .estado.off { background: #fce4d6; color: #843c0c; }
+.estado.medio { background: #fff2cc; color: #7f6000; }
+a.estado { text-decoration: none; font-weight: 600; }
 .menu-abajo { display: none; }
 
 .contenido { max-width: 1400px; margin: 0 auto; padding: 20px; }

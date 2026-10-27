@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { db } from '../db';
+import { db, guardar } from '../db';
 import type { Importacion } from '../importar';
 import { bs, MESES } from '../format';
 import { Tarjeta } from '../components';
@@ -32,10 +32,8 @@ export default function Importar() {
 
   async function importar() {
     if (!datos) return;
-    await db.transaction('rw', db.viajes, db.facturas, async () => {
-      await db.viajes.bulkPut(datos.viajes);
-      await db.facturas.bulkPut(datos.facturas);
-    });
+    await guardar('viajes', datos.viajes);
+    await guardar('facturas', datos.facturas);
     setHecho(`✔ Se importaron ${datos.viajes.length} viajes y ${datos.facturas.length} facturas.`);
     setDatos(null);
   }
