@@ -10,6 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/archivo": "^5.1.0",
+    "@fontsource/big-shoulders-display": "^5.1.0",
+    "@fontsource/ibm-plex-mono": "^5.1.0",
     "@supabase/supabase-js": "^2.49.4",
     "dexie": "4.0.10",
     "dexie-react-hooks": "1.1.7",

@@ -15,6 +15,10 @@ function Marco({ children }: { children: ReactNode }) {
           <p>Boletos, gastos, facturas e IVA</p>
         </div>
         {children}
+        <div className="acceso-talon" aria-hidden="true">
+          <span>Válido: TDS · PIN · PKS</span>
+          <span>N° {String(new Date().getFullYear()).slice(2)}-{String(new Date().getMonth() + 1).padStart(2, '0')}-0001</span>
+        </div>
       </div>
     </div>
   );

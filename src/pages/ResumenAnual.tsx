@@ -104,9 +104,9 @@ export default function ResumenAnual() {
           <Grafico titulo={`Ida neto, llegada y neto final por mes — ${bus === TODOS ? 'todos' : bus}`} categorias={CORTOS}
             onClic={(i) => ir(`/diario?bus=${bus}&anio=${anio}&mes=${i + 1}`)}
             series={[
-              { nombre: 'Ida neto', color: '#2e75b6', valores: meses.map((m) => m.idaNeto) },
-              { nombre: 'Llegada', color: '#548235', valores: meses.map((m) => m.montoRegistrado) },
-              { nombre: 'Neto final', color: '#1f3864', valores: meses.map((m) => m.netoFinal) },
+              { nombre: 'Ida neto', color: '#2453c9', valores: meses.map((m) => m.idaNeto) },
+              { nombre: 'Llegada', color: '#1d7a52', valores: meses.map((m) => m.montoRegistrado) },
+              { nombre: 'Neto final', color: '#17191e', valores: meses.map((m) => m.netoFinal) },
             ]} />
         </div>
         <div className="panel">

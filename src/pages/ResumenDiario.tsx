@@ -54,8 +54,8 @@ export default function ResumenDiario() {
         <Grafico titulo="Ida neto y llegada neta por día" categorias={dias.map((d) => d.fecha.slice(8))}
           onClic={(i) => { if (dias[i].t.viajes) ir(`/consulta?bus=${bus}&anio=${anio}&mes=${mes}`); }}
           series={[
-            { nombre: 'Ida neto', color: '#2e75b6', valores: dias.map((d) => d.t.idaNeto) },
-            { nombre: 'Llegada neta', color: '#548235', valores: dias.map((d) => d.t.netoFinal) },
+            { nombre: 'Ida neto', color: '#2453c9', valores: dias.map((d) => d.t.idaNeto) },
+            { nombre: 'Llegada neta', color: '#1d7a52', valores: dias.map((d) => d.t.netoFinal) },
           ]} />
       </section>
 

@@ -63,7 +63,7 @@ export default function Inicio() {
         {BUSES.map((b) => {
           const tb = totalizar(viajes.filter((v) => v.bus === b));
           return (
-            <a key={b} href={`#/consulta?bus=${b}&${q}`} className="bus" style={{ borderTopColor: COLOR_BUS[b] }}>
+            <a key={b} href={`#/consulta?bus=${b}&${q}`} className="bus" style={{ ['--c' as string]: COLOR_BUS[b] }}>
               <span className="bus-nombre">{b}</span>
               <b className={tb.netoFinal < 0 ? 'negativo' : ''}>{bs(tb.netoFinal)}</b>
               <small>{tb.viajes} viajes ›</small>

@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: 'Buses',
         description: 'Control de boletos, gastos y facturas de los buses',
         lang: 'es',
-        theme_color: '#1f3864',
-        background_color: '#f4f6fa',
+        theme_color: '#17191e',
+        background_color: '#17191e',
         display: 'standalone',
         start_url: '.',
         icons: [
