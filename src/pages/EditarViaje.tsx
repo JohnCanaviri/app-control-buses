@@ -17,9 +17,8 @@ interface Borrador {
   gastos: GastoD[]; otrosGastos: GastoD[]; observaciones: string;
 }
 
-const PRECIOS_IDA = [40, 50, 60, 70, 80];
-const CONCEPTOS_GASTOS = ['Peaje', 'Viático', 'Engrase', 'Lavado', 'Diésel'];
-const CONCEPTOS_OTROS = ['Diésel', 'Mantenimiento', 'Repuestos', 'Llantas'];
+const CONCEPTOS_GASTOS = ['Viático', 'Peaje'];
+const CONCEPTOS_OTROS = ['Mantenimiento'];
 const BUS_GUARDADO = 'ultimo-bus';
 
 function leerBus() {
@@ -68,7 +67,7 @@ function aViaje(b: Borrador, base?: Viaje): Viaje {
 }
 
 export default function EditarViaje({ id }: { id?: string }) {
-  const { puedeBorrar } = usePermisos();
+  const { puedeBorrar, puedeEditar } = usePermisos();
   const [base, setBase] = useState<Viaje | undefined>();
   const [b, setB] = useState<Borrador | null>(id ? null : nuevoBorrador());
   const [aviso, setAviso] = useState('');
@@ -137,7 +136,7 @@ export default function EditarViaje({ id }: { id?: string }) {
 
           <section className="panel borde-azul">
             <h2>2. Ida</h2>
-            <EditorBoletos lineas={b.boletosIda} onChange={(l) => set('boletosIda', l)} precios={PRECIOS_IDA} />
+            <EditorBoletos lineas={b.boletosIda} onChange={(l) => set('boletosIda', l)} precios={[]} />
             <div className="fila-campos">
               <div>
                 <label>Descuento de ida (Bs)</label>
@@ -181,13 +180,13 @@ export default function EditarViaje({ id }: { id?: string }) {
           <section className="panel borde-naranja">
             <h2>4. Gastos</h2>
             <EditorGastos gastos={b.gastos} onChange={(g) => set('gastos', g)} conceptos={CONCEPTOS_GASTOS} />
-            <h3>Otros gastos <small>(diésel grande, mantenimiento… se restan después)</small></h3>
+            <h3>Otros gastos <small>(mantenimiento; se restan después)</small></h3>
             <EditorGastos gastos={b.otrosGastos} onChange={(g) => set('otrosGastos', g)} conceptos={CONCEPTOS_OTROS} />
           </section>
 
           <section className="panel">
             <h2>5. Observaciones</h2>
-            <textarea rows={2} value={b.observaciones} onChange={(e) => set('observaciones', e.target.value)} />
+            <textarea rows={2} placeholder="Notas del viaje (se ven en consultas y reportes)" value={b.observaciones} onChange={(e) => set('observaciones', e.target.value)} />
           </section>
         </div>
 
@@ -202,11 +201,11 @@ export default function EditarViaje({ id }: { id?: string }) {
               <dt>Gastos</dt><dd>− {bs(c.totalGastos)}</dd>
               <dt>Total menos gastos</dt><dd>{bs(c.totalMenosGastos)}</dd>
               <dt>Otros gastos</dt><dd>− {bs(c.totalOtrosGastos)}</dd>
-              <dt className="fuerte">Neto final</dt><dd className={`fuerte grande ${c.netoFinal < 0 ? 'negativo' : ''}`}>{bs(c.netoFinal)}</dd>
+              <dt className="fuerte">Llegada neto</dt><dd className={`fuerte grande ${c.netoFinal < 0 ? 'negativo' : ''}`}>{bs(c.netoFinal)}</dd>
             </dl>
             <div className="acciones">
-              <button type="button" className="boton primario" onClick={() => guardar(false)}>Guardar</button>
-              {!base && <button type="button" className="boton" onClick={() => guardar(true)}>Guardar y registrar otro</button>}
+              {puedeEditar && <button type="button" className="boton primario" onClick={() => guardar(false)}>Guardar</button>}
+              {!base && puedeEditar && <button type="button" className="boton" onClick={() => guardar(true)}>Guardar y registrar otro</button>}
               <button type="button" className="boton suave" onClick={() => history.back()}>Cancelar</button>
             </div>
           </div>
@@ -252,14 +251,15 @@ function EditorGastos({ gastos, onChange, conceptos }: { gastos: GastoD[]; onCha
     <div className="editor">
       {gastos.map((g, i) => (
         <div className="editor-fila gasto" key={i}>
-          <input value={g.concepto} placeholder="Concepto" onChange={(e) => cambiar(i, 'concepto', e.target.value)} />
+          <select value={g.concepto} onChange={(e) => cambiar(i, 'concepto', e.target.value)}>
+            {[...new Set([...conceptos, g.concepto].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <input inputMode="decimal" value={g.monto} placeholder="Monto" onChange={(e) => cambiar(i, 'monto', e.target.value)} />
           <button type="button" className="quitar" aria-label="Quitar" onClick={() => onChange(gastos.filter((_, j) => j !== i))}>✕</button>
         </div>
       ))}
       <div className="chips">
         {conceptos.map((cpt) => <button type="button" key={cpt} onClick={() => onChange([...gastos, { concepto: cpt, monto: '' }])}>+ {cpt}</button>)}
-        <button type="button" className="otro" onClick={() => onChange([...gastos, { concepto: '', monto: '' }])}>+ Otro</button>
       </div>
     </div>
   );

@@ -14,9 +14,21 @@ export interface Factura {
   actualizado: number;
 }
 
+// Gasto tomado directamente del monto total (no es de un viaje). «bus» vacío = general.
+export interface GastoGeneral {
+  id: string;
+  fecha: string; // aaaa-mm-dd
+  bus: string;
+  categoria: string; // p. ej. Diésel
+  monto: number;
+  observaciones: string;
+  creado: number;
+  actualizado: number;
+}
+
 interface Config { clave: string; valor: unknown }
 
-export type Tabla = 'viajes' | 'facturas';
+export type Tabla = 'viajes' | 'facturas' | 'gastos';
 // Cambio local que todavía no se subió a internet (también los borrados).
 export interface Cambio { clave: string; tabla: Tabla; id: string; marca: number }
 
@@ -24,6 +36,7 @@ export interface Cambio { clave: string; tabla: Tabla; id: string; marca: number
 class BusesDB extends Dexie {
   viajes!: Table<Viaje, string>;
   facturas!: Table<Factura, string>;
+  gastos!: Table<GastoGeneral, string>;
   config!: Table<Config, string>;
   cambios!: Table<Cambio, string>;
   constructor() {
@@ -32,6 +45,7 @@ class BusesDB extends Dexie {
     this.version(2).stores({ facturas: 'id, fecha' });
     this.version(3).stores({ config: 'clave' });
     this.version(4).stores({ cambios: 'clave, tabla' });
+    this.version(5).stores({ gastos: 'id, fecha, bus' });
   }
 }
 
@@ -44,9 +58,15 @@ const anotar = (t: Tabla, ids: string[]) => {
   return db.cambios.bulkPut(ids.map((id) => ({ clave: `${t}:${id}`, tabla: t, id, marca })));
 };
 
+// Rol «observador»: la app no deja guardar ni borrar nada (lo pone sync.ts).
+let soloLectura = false;
+export const ponerSoloLectura = (v: boolean) => { soloLectura = v; };
+const revisar = () => { if (soloLectura) throw new Error('Tu cuenta es de solo lectura.'); };
+
 // Todo lo que la app guarda o borra pasa por aquí, para que luego se sincronice.
 export async function guardar<T extends ConId>(t: Tabla, objs: T[]) {
   if (!objs.length) return;
+  revisar();
   await db.transaction('rw', db[t], db.cambios, async () => {
     await tabla(t).bulkPut(objs);
     await anotar(t, objs.map((o) => o.id));
@@ -56,6 +76,7 @@ export async function guardar<T extends ConId>(t: Tabla, objs: T[]) {
 
 export async function eliminar(t: Tabla, ids: string[]) {
   if (!ids.length) return;
+  revisar();
   await db.transaction('rw', db[t], db.cambios, async () => {
     await tabla(t).bulkDelete(ids);
     await anotar(t, ids);
@@ -65,9 +86,10 @@ export async function eliminar(t: Tabla, ids: string[]) {
 
 // Marca todo lo local para subir (la primera vez que se entra con una cuenta).
 export async function marcarTodoParaSubir() {
-  await db.transaction('rw', db.viajes, db.facturas, db.cambios, async () => {
+  await db.transaction('rw', db.viajes, db.facturas, db.gastos, db.cambios, async () => {
     await anotar('viajes', (await db.viajes.toCollection().primaryKeys()) as string[]);
     await anotar('facturas', (await db.facturas.toCollection().primaryKeys()) as string[]);
+    await anotar('gastos', (await db.gastos.toCollection().primaryKeys()) as string[]);
   });
 }
 

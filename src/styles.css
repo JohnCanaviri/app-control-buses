@@ -244,9 +244,6 @@ input:focus, select:focus, textarea:focus { outline: 3px solid var(--senal); out
 .fila-usuario .acciones { margin-top: 0; }
 
 /* --- Gráficos --- */
-.graficos { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.graficos .panel { margin-bottom: 0; }
-.graficos + * { margin-top: 18px; }
 .grafico { margin: 0; }
 .grafico figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-family: var(--f-letrero); font-weight: 800; font-size: 1.15rem; text-transform: uppercase; }
 .leyenda { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--f-num); font-size: .72rem; font-weight: 500; text-transform: none; color: var(--suave); }
@@ -374,7 +371,6 @@ input:focus, select:focus, textarea:focus { outline: 3px solid var(--senal); out
   .menu-abajo a.activo { color: var(--senal); }
   .menu-abajo a.activo::before { background: var(--senal); border-color: var(--senal); box-shadow: 0 0 0 4px rgba(245, 183, 0, .25); }
 
-  .graficos { grid-template-columns: 1fr; }
   .iva-grid { grid-template-columns: 1fr; }
   .iva-tarjetas { grid-template-columns: 1fr 1fr; order: -1; }
   .iva-tarjetas .tarjeta-valor { font-size: 1.4rem; }
@@ -403,3 +399,15 @@ input:focus, select:focus, textarea:focus { outline: 3px solid var(--senal); out
   .atajo { padding: 14px 8px; flex-direction: column; gap: 4px; }
   .atajo span { font-size: 1.1rem; }
 }
+.obs { white-space: pre-wrap; color: var(--suave); font-size: .85em; }
+
+/* Inicio: cuatro cifras y ventanas */
+.panel.principal { grid-template-columns: repeat(4, 1fr); }
+.atajo { cursor: pointer; font: inherit; font-size: 1.4rem; }
+.atajo.verde { background: var(--lleg); color: #fff; }
+.atajo.azul { background: var(--ida); color: #fff; }
+.modal-fondo { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+.modal { width: min(560px, 100%); max-height: 90vh; overflow: auto; margin: 0; }
+.ticks { font-size: 1.2rem; letter-spacing: .1em; }
+.contador { font-family: var(--f-num); background: var(--fact); color: #fff; padding: 4px 10px; border-radius: var(--radio); }
+@media (max-width: 700px) { .panel.principal { grid-template-columns: 1fr 1fr; } }

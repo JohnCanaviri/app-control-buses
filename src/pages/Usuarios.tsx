@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { cambiarRol, listarPerfiles, useSync, type Perfil, type Rol } from '../sync';
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: '2-digit' });
-const ROL: Record<Rol, string> = { admin: 'Administrador', empleado: 'Empleado', pendiente: 'Esperando', rechazado: 'Sin acceso' };
+const ROL: Record<Rol, string> = { admin: 'Administrador', empleado: 'Empleado', observador: 'Observador (solo lectura)', pendiente: 'Esperando', rechazado: 'Sin acceso' };
 
 export default function Usuarios() {
   const s = useSync();
@@ -17,7 +17,7 @@ export default function Usuarios() {
   }
 
   async function poner(p: Perfil, rol: Rol, texto: string) {
-    if (rol === 'rechazado' && p.rol === 'empleado' && !confirm(`¿Quitarle el acceso a ${p.nombre || p.correo}?`)) return;
+    if (rol === 'rechazado' && p.rol !== 'pendiente' && !confirm(`¿Quitarle el acceso a ${p.nombre || p.correo}?`)) return;
     try {
       await cambiarRol(p.user_id, rol);
       setMsg(`✔ ${p.nombre || p.correo}: ${texto}.`);
@@ -29,14 +29,14 @@ export default function Usuarios() {
 
   const grupos: { titulo: string; filtro: (p: Perfil) => boolean; vacio: string }[] = [
     { titulo: '🔔 Esperando tu aprobación', filtro: (p) => p.rol === 'pendiente', vacio: 'No hay solicitudes nuevas.' },
-    { titulo: '✅ Con acceso', filtro: (p) => p.rol === 'admin' || p.rol === 'empleado', vacio: '' },
+    { titulo: '✅ Con acceso', filtro: (p) => p.rol === 'admin' || p.rol === 'empleado' || p.rol === 'observador', vacio: '' },
     { titulo: '⛔ Sin acceso', filtro: (p) => p.rol === 'rechazado', vacio: 'Nadie.' },
   ];
 
   return (
     <>
       <div className="encabezado"><h1>Usuarios</h1></div>
-      <p>Cualquiera puede pedir una cuenta desde la app, pero <b>no ve ni toca nada hasta que tú la apruebes</b>. Los empleados registran, editan y ven todo; <b>no pueden borrar, importar ni aprobar</b>.</p>
+      <p>Las cuentas <b>solo las creas tú</b> en Supabase (Authentication → Add user); aparecen aquí para que les des un rol. Los empleados registran, editan y ven todo; <b>no pueden borrar, importar ni aprobar</b>. Los observadores <b>solo ven</b> métricas, consultas y tablas.</p>
       {msg && <div className={`aviso ${msg.startsWith('✔') ? '' : 'error'}`} onClick={() => setMsg('')}>{msg}</div>}
       {!perfiles && <p className="vacio">Cargando…</p>}
       {perfiles && grupos.map((g) => {
@@ -55,6 +55,7 @@ export default function Usuarios() {
                   <div className="acciones fila">
                     {p.rol === 'admin' ? <span className="insignia ok">Tú (administrador)</span> : <>
                       {p.rol !== 'empleado' && <button type="button" className="boton primario" onClick={() => poner(p, 'empleado', 'aprobado')}>✔ Aprobar</button>}
+                      {p.rol !== 'observador' && <button type="button" className="boton" onClick={() => poner(p, 'observador', 'solo lectura')}>👁 Solo lectura</button>}
                       {p.rol !== 'rechazado' && <button type="button" className="boton peligro" onClick={() => poner(p, 'rechazado', p.rol === 'pendiente' ? 'rechazado' : 'acceso quitado')}>{p.rol === 'pendiente' ? '✖ Rechazar' : 'Quitar acceso'}</button>}
                     </>}
                   </div>

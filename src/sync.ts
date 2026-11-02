@@ -2,12 +2,12 @@
 // cuando hay internet y una cuenta abierta, sube los cambios pendientes y baja los de otros equipos.
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { db, guardarConfig, leerConfig, marcarTodoParaSubir, type Cambio, type Factura, type Tabla } from './db';
+import { db, guardarConfig, leerConfig, marcarTodoParaSubir, ponerSoloLectura, type Cambio, type Factura, type Tabla } from './db';
 import type { Viaje } from './calc';
 import { supabase } from './nube';
 
 export type Fase = 'sin-cuenta' | 'pendiente' | 'rechazado' | 'sin-internet' | 'sincronizando' | 'listo' | 'error';
-export type Rol = 'pendiente' | 'empleado' | 'admin' | 'rechazado';
+export type Rol = 'pendiente' | 'empleado' | 'admin' | 'observador' | 'rechazado';
 export interface EstadoSync {
   fase: Fase; mensaje: string; pendientes: number; ultima: number | null;
   sesionLista: boolean; // ya se sabe si hay una sesión guardada en este equipo
@@ -18,7 +18,7 @@ export interface EstadoSync {
   recuperar: boolean; // se entró con el enlace de «olvidé mi contraseña»
 }
 
-const TABLAS: Tabla[] = ['viajes', 'facturas'];
+const TABLAS: Tabla[] = ['viajes', 'facturas', 'gastos'];
 const TANDA = 200;
 
 let estado: EstadoSync = {
@@ -34,6 +34,7 @@ function rolGuardado(usuario: string): { rol: Rol | null; nombre: string | null 
 const oyentes = new Set<(e: EstadoSync) => void>();
 function poner(cambio: Partial<EstadoSync>) {
   estado = { ...estado, ...cambio };
+  ponerSoloLectura(estado.rol === 'observador');
   oyentes.forEach((f) => f(estado));
 }
 
@@ -53,7 +54,7 @@ async function subir() {
     const deEsta = cambios.filter((c) => c.tabla === t);
     for (let i = 0; i < deEsta.length; i += TANDA) {
       const tanda = deEsta.slice(i, i + TANDA);
-      const locales = await (db[t] as typeof db.viajes | typeof db.facturas).bulkGet(tanda.map((c) => c.id));
+      const locales = await (db[t] as typeof db.viajes | typeof db.facturas | typeof db.gastos).bulkGet(tanda.map((c) => c.id));
       const filas = tanda.map((c, j) => {
         const obj = locales[j] as Viaje | Factura | undefined;
         // Los datos son de toda la empresa: «user_id» (quién lo creó) lo pone el servidor la primera vez.
@@ -87,7 +88,7 @@ async function bajar() {
       const filas = (data ?? []) as Fila[];
       if (!filas.length) break;
       const pendientes = new Set((await db.cambios.where('tabla').equals(t).toArray()).map((c: Cambio) => c.id));
-      const tablaLocal = db[t] as typeof db.viajes | typeof db.facturas;
+      const tablaLocal = db[t] as typeof db.viajes | typeof db.facturas | typeof db.gastos;
       await db.transaction('rw', tablaLocal, async () => {
         for (const f of filas) {
           if (pendientes.has(f.id)) continue; // lo local cambió y aún no se subió: gana lo local
@@ -113,12 +114,12 @@ export async function sincronizar() {
   try {
     // El rol se vuelve a leer cada vez: así una cuenta pendiente se activa sola cuando la apruebas.
     const rol = await leerRol(sesion.user.id);
-    if (rol !== 'admin' && rol !== 'empleado') {
+    if (rol !== 'admin' && rol !== 'empleado' && rol !== 'observador') {
       poner({ fase: rol === 'rechazado' ? 'rechazado' : 'pendiente', rol, mensaje: '' });
       return;
     }
     poner({ rol });
-    await subir();
+    if (rol !== 'observador') await subir();
     await bajar();
     if (rol === 'admin') {
       const { count } = await supabase.from('perfiles').select('user_id', { count: 'exact', head: true }).eq('rol', 'pendiente');
@@ -158,6 +159,9 @@ async function alEntrar(s: Session) {
 
 export function iniciarSync() {
   supabase.auth.onAuthStateChange((evento, s) => {
+    // Al abrir la app (o volver a ella) tras mucho tiempo sin usarla, hay que entrar de nuevo.
+    if (s && evento === 'INITIAL_SESSION' && sesionVencida()) { salir(); return; }
+    if (s && evento === 'SIGNED_IN') marcarActividad();
     const nueva = s && (!sesion || sesion.user.id !== s.user.id);
     sesion = s;
     poner({
@@ -171,7 +175,11 @@ export function iniciarSync() {
   window.addEventListener('datos-cambiados', () => { db.cambios.count().then((n) => poner({ pendientes: n })); pronto(); });
   window.addEventListener('online', () => pronto(300));
   window.addEventListener('offline', () => poner({ fase: sesion ? 'sin-internet' : 'sin-cuenta' }));
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pronto(300); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (sesion && sesionVencida()) { salir(); return; }
+    pronto(300);
+  });
   setInterval(() => { if (document.visibilityState === 'visible') sincronizar(); }, 60_000);
 }
 
@@ -218,6 +226,17 @@ export async function cambiarClave(nueva: string) {
   poner({ recuperar: false });
 }
 
+// Cierra la sesión si nadie usa la app durante este tiempo.
+export const MINUTOS_INACTIVIDAD = 10;
+const ULTIMA_ACTIVIDAD = 'ultima-actividad';
+export function marcarActividad() {
+  try { localStorage.setItem(ULTIMA_ACTIVIDAD, String(Date.now())); } catch { /* sin almacenamiento */ }
+}
+// true = pasó demasiado tiempo desde la última vez que se usó la app (aunque estuviera cerrada).
+function sesionVencida() {
+  try { const t = Number(localStorage.getItem(ULTIMA_ACTIVIDAD)); return !!t && Date.now() - t > MINUTOS_INACTIVIDAD * 60_000; } catch { return false; }
+}
+
 export async function salir() {
   await supabase.auth.signOut();
 }
@@ -236,5 +255,5 @@ function traducir(m: string) {
 export function usePermisos() {
   const { rol } = useSync();
   const admin = rol === 'admin';
-  return { puedeBorrar: admin, puedeImportar: admin, esAdmin: admin };
+  return { puedeBorrar: admin, puedeImportar: admin, esAdmin: admin, puedeEditar: rol !== 'observador' };
 }

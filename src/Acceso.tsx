@@ -44,6 +44,7 @@ export function PantallaLogin() {
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
+  const [repetir, setRepetir] = useState('');
   const { hacer, ocupado, aviso, setMsg } = useAccion();
   const cambiar = (m: typeof modo) => { setModo(m); setMsg(''); };
 
@@ -51,6 +52,7 @@ export function PantallaLogin() {
     const c = correo.trim();
     if (modo === 'entrar') hacer(() => entrar(c, clave));
     else if (modo === 'crear') {
+      if (clave !== repetir) { setMsg('✖ Las dos contraseñas no son iguales.'); return; }
       hacer(async () => (await crearCuenta(nombre.trim(), c, clave))
         ? '✔ Solicitud enviada. 1) Abre el correo que te llegó y pulsa el enlace para confirmarlo. 2) Cuando el administrador te apruebe, entra aquí con tu correo y contraseña.'
         : '✔ Solicitud enviada. Cuando el administrador te apruebe, entra con tu correo y contraseña.');
@@ -78,6 +80,11 @@ export function PantallaLogin() {
           <label>Contraseña</label>
           <input type="password" autoComplete={modo === 'crear' ? 'new-password' : 'current-password'} value={clave}
             onChange={(e) => setClave(e.target.value)} required minLength={6} />
+        </>}
+        {modo === 'crear' && <>
+          <label>Repite la contraseña</label>
+          <input type="password" autoComplete="new-password" value={repetir} onChange={(e) => setRepetir(e.target.value)} required minLength={6} />
+          <p className="acceso-nota">🔑 Esta contraseña será tu clave de acceso permanente: guárdala bien.</p>
         </>}
         <button type="submit" className="boton primario ancho" disabled={ocupado}>
           {ocupado ? '⏳ …' : modo === 'entrar' ? 'Entrar' : modo === 'crear' ? 'Enviar solicitud' : 'Enviar enlace'}

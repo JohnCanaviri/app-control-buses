@@ -1,12 +1,14 @@
 import { useRuta } from './router';
 import { EstadoNube } from './Cuenta';
 import { Cargando, PantallaEspera, PantallaLogin, PantallaNuevaClave } from './Acceso';
-import { useSync } from './sync';
+import { useEffect } from 'react';
+import { marcarActividad, MINUTOS_INACTIVIDAD, salir, useSync } from './sync';
 import Inicio from './pages/Inicio';
 import EditarViaje from './pages/EditarViaje';
 import Consulta from './pages/Consulta';
 import ResumenAnual from './pages/ResumenAnual';
-import ResumenDiario from './pages/ResumenDiario';
+import Gastos from './pages/Gastos';
+import Mantenimientos from './pages/Mantenimientos';
 import Facturas from './pages/Facturas';
 import EditarFactura from './pages/EditarFactura';
 import Ajustes from './pages/Ajustes';
@@ -16,18 +18,16 @@ import Usuarios from './pages/Usuarios';
 // «celular: false» = no va en la barra de abajo del celular (se llega por el botón de arriba).
 const MENU = [
   { ruta: '/', texto: 'Inicio', icono: '🏠' },
-  { ruta: '/nuevo', texto: 'Nuevo viaje', icono: '➕' },
   { ruta: '/consulta', texto: 'Consulta', icono: '🔎' },
   { ruta: '/resumen', texto: 'Resúmenes', icono: '📊' },
-  { ruta: '/facturas', texto: 'Facturas', icono: '🧾' },
+  { ruta: '/gastos', texto: 'Gastos', icono: '💸' },
   { ruta: '/ajustes', texto: 'Cuenta', icono: '👤', celular: false },
 ];
 
 // Qué opción del menú se marca para cada pantalla.
 function seccion(camino: string) {
-  if (camino.startsWith('/viaje/')) return '/nuevo';
-  if (camino === '/diario') return '/resumen';
-  if (camino.startsWith('/factura/')) return '/facturas';
+  if (camino === '/nuevo' || camino.startsWith('/viaje/')) return '/';
+  if (camino === '/mantenimientos' || camino === '/facturas' || camino.startsWith('/factura/')) return '/gastos';
   if (camino === '/importar' || camino === '/usuarios') return '/ajustes';
   return camino;
 }
@@ -36,6 +36,18 @@ export default function App() {
   const s = useSync();
   const ruta = useRuta();
   const camino = ruta.split('?')[0];
+
+  // Sin actividad durante un rato se cierra la sesión y hay que volver a entrar.
+  const conSesion = !!s.correo;
+  useEffect(() => {
+    if (!conSesion) return;
+    let t: ReturnType<typeof setTimeout>;
+    const reiniciar = () => { marcarActividad(); clearTimeout(t); t = setTimeout(() => { salir(); }, MINUTOS_INACTIVIDAD * 60_000); };
+    const eventos = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+    eventos.forEach((e) => window.addEventListener(e, reiniciar, { passive: true }));
+    reiniciar();
+    return () => { clearTimeout(t); eventos.forEach((e) => window.removeEventListener(e, reiniciar)); };
+  }, [conSesion]);
 
   // Vista previa solo para desarrollo (localhost/?demo): no existe en la app publicada.
   const demo = import.meta.env.DEV && location.search.includes('demo');
@@ -49,12 +61,16 @@ export default function App() {
     if (s.rol === 'pendiente' || s.rol === 'rechazado') return <PantallaEspera />;
   }
 
+  // El observador solo mira: las pantallas para crear lo llevan al inicio.
+  const soloVer = s.rol === 'observador' && ['/nuevo', '/importar', '/factura/nueva'].includes(camino);
   let pagina;
-  if (camino === '/nuevo') pagina = <EditarViaje key="nuevo" />;
+  if (soloVer) pagina = <Inicio />;
+  else if (camino === '/nuevo') pagina = <EditarViaje key="nuevo" />;
   else if (camino.startsWith('/viaje/')) pagina = <EditarViaje key={camino} id={decodeURIComponent(camino.slice(7))} />;
   else if (camino === '/consulta') pagina = <Consulta />;
   else if (camino === '/resumen') pagina = <ResumenAnual />;
-  else if (camino === '/diario') pagina = <ResumenDiario />;
+  else if (camino === '/gastos') pagina = <Gastos />;
+  else if (camino === '/mantenimientos') pagina = <Mantenimientos />;
   else if (camino === '/facturas') pagina = <Facturas />;
   else if (camino === '/factura/nueva') pagina = <EditarFactura key={ruta} />;
   else if (camino.startsWith('/factura/')) pagina = <EditarFactura key={camino} id={decodeURIComponent(camino.slice(9))} />;

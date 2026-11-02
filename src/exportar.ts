@@ -25,7 +25,7 @@ function hojaRegistro(viajes: Viaje[]): WorkSheet {
   const filas: (string | number)[][] = [[
     'Bus', 'Fecha', 'Destino', 'Hora salida - llegada', 'Boletos de ida (detalle)', 'Descuento ida (monto)',
     'Boletos de llegada (detalle)', 'Monto registrado que trajeron', 'Gastos (concepto y monto)', 'Otros gastos (concepto y monto)', 'Observaciones',
-    'Monto ida', 'Ida neto', 'Monto calculado llegada', 'Verificación', 'Total gastos', 'Total otros gastos', 'Neto final',
+    'Monto ida', 'Ida neto', 'Monto calculado llegada', 'Verificación', 'Total gastos', 'Total otros gastos', 'Llegada neto',
   ]];
   for (const v of orden) {
     const c = calcular(v);

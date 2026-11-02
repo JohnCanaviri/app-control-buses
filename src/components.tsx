@@ -2,6 +2,16 @@ import type { ReactNode } from 'react';
 import type { Verificacion } from './calc';
 import { MESES } from './format';
 
+// Gastos, Mantenimientos y Facturas comparten una sola pestaña.
+export function PestanasGastos({ vista }: { vista: 'gastos' | 'mantenimientos' | 'facturas' }) {
+  const v = [['gastos', '💸 Gastos'], ['mantenimientos', '🔧 Mantenimientos'], ['facturas', '🧾 Facturas']];
+  return (
+    <div className="pestanas no-imprimir">
+      {v.map(([r, t]) => <a key={r} href={`#/${r}`} className={vista === r ? 'sel' : ''}>{t}</a>)}
+    </div>
+  );
+}
+
 export function Tarjeta({ titulo, valor, color = 'navy', nota }: { titulo: string; valor: ReactNode; color?: string; nota?: ReactNode }) {
   return (
     <div className={`tarjeta ${color}`}>
@@ -14,8 +24,9 @@ export function Tarjeta({ titulo, valor, color = 'navy', nota }: { titulo: strin
 
 export function Insignia({ v }: { v: Verificacion }) {
   if (!v) return <span className="insignia vacia">—</span>;
-  const cls = v === 'CONFORME' ? 'ok' : v === 'FALTA BOLETOS' ? 'mal' : 'aviso';
-  return <span className={`insignia ${cls}`}>{v}</span>;
+  // Si faltan boletos se considera normal; solo se marca en rojo cuando se pasa del límite.
+  if (v === 'DIFERENCIA') return <span className="insignia mal">EXCEDE</span>;
+  return <span className="insignia ok">CONFORME</span>;
 }
 
 export function Botones<T extends string | number>({ opciones, valor, onChange, etiqueta }: {
@@ -51,12 +62,3 @@ export function SelectorMes({ anio, mes, onChange }: { anio: number; mes: number
   );
 }
 
-// Las dos vistas de la pestaña «Resúmenes»; al cambiar se conservan bus, año y mes.
-export function VistasResumen({ vista, bus, anio, mes }: { vista: 'anual' | 'diario'; bus: string; anio: number; mes: number }) {
-  return (
-    <div className="pestanas no-imprimir">
-      <a href={`#/resumen?bus=${bus}&anio=${anio}&mes=${mes}`} className={vista === 'anual' ? 'sel' : ''}>📊 Mes por mes</a>
-      <a href={`#/diario?bus=${bus}&anio=${anio}&mes=${mes}`} className={vista === 'diario' ? 'sel' : ''}>📅 Día por día</a>
-    </div>
-  );
-}

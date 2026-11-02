@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { db, eliminar as borrarDatos, guardar as guardarDatos, leerConfig, type Factura } from '../db';
 import { TASA_IVA_POR_DEFECTO } from '../iva';
 import { usePermisos } from '../sync';
@@ -7,10 +7,25 @@ import { ir, parametros, useRuta } from '../router';
 
 interface Borrador { fecha: string; numero: string; proveedor: string; concepto: string; monto: string; observaciones: string; foto?: string }
 
+// «Escanear factura» abre la cámara directamente; la foto se pasa al formulario.
+let fotoPendiente: File | undefined;
+export function BotonEscanear({ fecha, className, children }: { fecha: string; className: string; children: ReactNode }) {
+  return (
+    <label className={className}>
+      {children}
+      <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => {
+        fotoPendiente = e.target.files?.[0];
+        e.target.value = '';
+        if (fotoPendiente) ir(`/factura/nueva?foto=1&fecha=${fecha}`);
+      }} />
+    </label>
+  );
+}
+
 const CONCEPTOS = ['Diésel', 'Repuestos', 'Llantas', 'Mantenimiento', 'Lubricantes', 'Peaje'];
 
 export default function EditarFactura({ id }: { id?: string }) {
-  const { puedeBorrar } = usePermisos();
+  const { puedeBorrar, puedeEditar } = usePermisos();
   const q = parametros(useRuta());
   const mesSugerido = q.get('fecha'); // aaaa-mm del mes que se estaba mirando
   const [base, setBase] = useState<Factura | undefined>();
@@ -35,15 +50,16 @@ export default function EditarFactura({ id }: { id?: string }) {
   const [tasa, setTasa] = useState(TASA_IVA_POR_DEFECTO);
   useEffect(() => { leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO).then(setTasa); }, []);
 
-  // «Escanear una factura» abre la cámara apenas se entra (si el navegador lo permite).
-  const abrirCamara = !id && q.get('foto') === '1';
-  useEffect(() => { if (abrirCamara) camara.current?.click(); }, [abrirCamara]);
-
-  if (!b) return <p className="vacio">{estado || 'Cargando…'}</p>;
-  const set = (k: keyof Borrador, v: string) => setB({ ...b, [k]: v });
+  // Foto tomada con «Escanear factura»: se lee apenas se entra.
+  useEffect(() => {
+    if (id || !fotoPendiente) return;
+    const f = fotoPendiente;
+    fotoPendiente = undefined;
+    foto(f);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function foto(archivo: File | undefined) {
-    if (!archivo || !b) return;
+    if (!archivo) return;
     setLeyendo(true);
     try {
       const { leerFotoFactura } = await import('../lectorFoto');
@@ -64,6 +80,9 @@ export default function EditarFactura({ id }: { id?: string }) {
       setLeyendo(false);
     }
   }
+
+  if (!b) return <p className="vacio">{estado || 'Cargando…'}</p>;
+  const set = (k: keyof Borrador, v: string) => setB({ ...b, [k]: v });
 
   async function guardar(otra: boolean) {
     if (!b) return;
@@ -146,8 +165,8 @@ export default function EditarFactura({ id }: { id?: string }) {
               <dt>IVA crédito ({Math.round(tasa * 1000) / 10}%)</dt><dd className="morado-txt fuerte">{bs(aNumero(b.monto) * tasa)}</dd>
             </dl>
             <div className="acciones">
-              <button type="button" className="boton primario" disabled={leyendo} onClick={() => guardar(false)}>Guardar</button>
-              {!base && <button type="button" className="boton" disabled={leyendo} onClick={() => guardar(true)}>Guardar y escanear otra</button>}
+              {puedeEditar && <button type="button" className="boton primario" disabled={leyendo} onClick={() => guardar(false)}>Guardar</button>}
+              {!base && puedeEditar && <button type="button" className="boton" disabled={leyendo} onClick={() => guardar(true)}>Guardar y escanear otra</button>}
               <button type="button" className="boton suave" onClick={() => history.back()}>Cancelar</button>
             </div>
           </div>

@@ -4,7 +4,9 @@ import { db, guardarConfig, leerConfig } from '../db';
 import { calcularIVA, TASA_IVA_POR_DEFECTO } from '../iva';
 import { bs, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
-import { SelectorMes, Tarjeta } from '../components';
+import { PestanasGastos, SelectorMes, Tarjeta } from '../components';
+import { usePermisos } from '../sync';
+import { BotonEscanear } from './EditarFactura';
 
 export default function Facturas() {
   const q = parametros(useRuta());
@@ -12,6 +14,8 @@ export default function Facturas() {
   const anio = Number(q.get('anio')) || hoy.getFullYear();
   const mes = Number(q.get('mes')) || hoy.getMonth() + 1;
   const [desde, hasta] = rangoMes(anio, mes);
+  const { puedeEditar } = usePermisos();
+  const totalFacturas = useLiveQuery(() => db.facturas.count(), []);
 
   const [tasa, setTasa] = useState(TASA_IVA_POR_DEFECTO);
   const [tasaTxt, setTasaTxt] = useState('13');
@@ -37,8 +41,9 @@ export default function Facturas() {
 
   return (
     <>
+      <PestanasGastos vista="facturas" />
       <div className="encabezado">
-        <h1>Facturas e IVA — {MESES[mes - 1]} {anio}</h1>
+        <h1>Facturas e IVA — {MESES[mes - 1]} {anio} <span className="contador" title="Facturas registradas en total">🧾 {totalFacturas ?? 0}</span></h1>
         <div className="acciones fila no-imprimir">
           <button type="button" className="boton" onClick={exportar}>📤 Excel para el contador</button>
           <button type="button" className="boton" onClick={() => print()}>🖨 Imprimir / PDF</button>
@@ -52,10 +57,10 @@ export default function Facturas() {
         </div>
       </div>
 
-      <div className="acciones fila no-imprimir" style={{ marginBottom: 16 }}>
-        <a href={`#/factura/nueva?foto=1&fecha=${anio}-${String(mes).padStart(2, '0')}`} className="boton-grande morado">📷 Escanear una factura</a>
+      {puedeEditar && <div className="acciones fila no-imprimir" style={{ marginBottom: 16 }}>
+        <BotonEscanear fecha={`${anio}-${String(mes).padStart(2, '0')}`} className="boton-grande morado">📷 Escanear una factura</BotonEscanear>
         <a href={`#/factura/nueva?fecha=${anio}-${String(mes).padStart(2, '0')}`} className="boton">✍ Anotar a mano</a>
-      </div>
+      </div>}
 
       <div className="iva-grid">
         <section className="panel">
@@ -85,13 +90,13 @@ export default function Facturas() {
         {datos.facturas.length > 0 && (
           <div className="tabla-wrap">
             <table className="tabla">
-              <thead><tr><th>Fecha</th><th>N° factura</th><th>Proveedor / NIT</th><th>Concepto</th><th>Monto</th><th>IVA crédito</th><th>Foto</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>N° factura</th><th>Proveedor / NIT</th><th>Concepto</th><th>Monto</th><th>IVA crédito</th><th>Observaciones</th><th>Foto</th></tr></thead>
               <tbody>
-                <tr className="totales"><td colSpan={4}>TOTAL</td><td className="num">{bs(iva.facturas)}</td><td className="num">{bs(iva.credito)}</td><td></td></tr>
+                <tr className="totales"><td colSpan={4}>TOTAL</td><td className="num">{bs(iva.facturas)}</td><td className="num">{bs(iva.credito)}</td><td></td><td></td></tr>
                 {datos.facturas.map((f) => (
                   <tr key={f.id} className="clic" onClick={() => ir(`/factura/${f.id}`)}>
                     <td>{fechaCorta(f.fecha)}</td><td>{f.numero}</td><td>{f.proveedor}</td><td>{f.concepto}</td>
-                    <td className="num fuerte">{bs(f.monto)}</td><td className="num morado-txt">{bs(f.monto * tasa)}</td>
+                    <td className="num fuerte">{bs(f.monto)}</td><td className="num morado-txt">{bs(f.monto * tasa)}</td><td className="obs">{f.observaciones}</td>
                     <td>{f.foto ? '📷' : ''}</td>
                   </tr>
                 ))}

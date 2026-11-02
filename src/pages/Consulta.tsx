@@ -34,7 +34,6 @@ export default function Consulta() {
       <div className="encabezado">
         <h1>Consulta — {bus} · {MESES[mes - 1]} {anio}</h1>
         <div className="acciones fila no-imprimir">
-          <a href={`#/diario?bus=${bus}&anio=${anio}&mes=${mes}`} className="boton">📅 Día por día</a>
           <button type="button" className="boton" onClick={() => print()}>🖨 Imprimir / PDF</button>
         </div>
       </div>
@@ -48,10 +47,10 @@ export default function Consulta() {
         <Tarjeta titulo="Ida normal" valor={bs(t.montoIda)} color="azul" />
         <Tarjeta titulo="Descuento" valor={bs(t.descuentoIda)} color="azul" />
         <Tarjeta titulo="Ida neto" valor={bs(t.idaNeto)} color="azul" />
-        <Tarjeta titulo="Llegada (registrado)" valor={bs(t.montoRegistrado)} color="verde" nota={t.faltaBoletos ? `⚠ ${t.faltaBoletos} con falta de boletos` : undefined} />
+        <Tarjeta titulo="Llegada (registrado)" valor={bs(t.montoRegistrado)} color="verde" />
         <Tarjeta titulo="Gastos" valor={bs(t.totalGastos)} color="naranja" />
         <Tarjeta titulo="Otros gastos" valor={bs(t.totalOtrosGastos)} color="naranja" />
-        <Tarjeta titulo="Neto final" valor={<span className={t.netoFinal < 0 ? 'negativo' : ''}>{bs(t.netoFinal)}</span>} />
+        <Tarjeta titulo="Llegada neto" valor={<span className={t.netoFinal < 0 ? 'negativo' : ''}>{bs(t.netoFinal)}</span>} />
       </section>
 
       {filas.length === 0 && <p className="vacio panel">No hay viajes de {bus} en {MESES[mes - 1]} {anio}.</p>}
@@ -66,13 +65,13 @@ export default function Consulta() {
                   <th colSpan={bus === TODOS ? 4 : 3} className="g-navy">Viaje</th>
                   <th colSpan={4} className="g-azul">Ida</th>
                   <th colSpan={3} className="g-verde">Llegada</th>
-                  <th colSpan={4} className="g-naranja">Gastos y neto</th>
+                  <th colSpan={5} className="g-naranja">Gastos y neto</th>
                 </tr>
                 <tr>
                   <th>Fecha</th>{bus === TODOS && <th>Bus</th>}<th>Destino</th><th>Horario</th>
                   <th>Boletos</th><th>Monto ida</th><th>Desc.</th><th>Ida neto</th>
                   <th>Calculado</th><th>Verificación</th><th>Trajeron</th>
-                  <th>Gastos</th><th>Total − gastos</th><th>Otros gastos</th><th>Neto final</th>
+                  <th>Gastos</th><th>Total − gastos</th><th>Otros gastos</th><th>Llegada neto</th><th>Observaciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,7 +81,7 @@ export default function Consulta() {
                   <td className="num azul-txt">{bs(t.idaNeto)}</td>
                   <td className="num">{bs(t.montoCalculadoLlegada)}</td><td></td><td className="num">{bs(t.montoRegistrado)}</td>
                   <td className="num">{bs(t.totalGastos)}</td><td className="num">{bs(t.totalMenosGastos)}</td><td className="num">{bs(t.totalOtrosGastos)}</td>
-                  <td className={`num ${t.netoFinal < 0 ? 'negativo' : ''}`}>{bs(t.netoFinal)}</td>
+                  <td className={`num ${t.netoFinal < 0 ? 'negativo' : ''}`}>{bs(t.netoFinal)}</td><td></td>
                 </tr>
                 {filas.map(({ v, c }) => (
                   <tr key={v.id} className="clic" onClick={() => ir(`/viaje/${v.id}`)} title={v.observaciones || 'Clic para editar'}>
@@ -95,6 +94,7 @@ export default function Consulta() {
                     <td className="num">{bs(c.totalMenosGastos)}</td>
                     <td className="num" title={v.otrosGastos.map((g) => `${g.concepto} ${g.monto}`).join('; ')}>{c.totalOtrosGastos ? bs(c.totalOtrosGastos) : '-'}</td>
                     <td className={`num fuerte ${c.netoFinal < 0 ? 'negativo' : ''}`}>{bs(c.netoFinal)}</td>
+                    <td className="obs">{v.observaciones}</td>
                   </tr>
                 ))}
               </tbody>
@@ -117,6 +117,7 @@ export default function Consulta() {
                   <span>Gastos<b>{bs(c.totalGastos + c.totalOtrosGastos)}</b></span>
                   <span>Neto<b className={c.netoFinal < 0 ? 'negativo' : ''}>{bs(c.netoFinal)}</b></span>
                 </div>
+                {v.observaciones && <small className="obs">📝 {v.observaciones}</small>}
               </a>
             ))}
           </div>

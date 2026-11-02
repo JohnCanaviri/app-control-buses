@@ -91,7 +91,7 @@ export default function Importar() {
                         <th>Monto ida<br /><small>App / Excel</small></th>
                         {conIdaNeto && <th>Ida neto<br /><small>App / Excel</small></th>}
                         <th>Llegada<br /><small>App / Excel</small></th>
-                        <th>Neto final<br /><small>App / Excel</small></th>
+                        <th>Llegada neto<br /><small>App / Excel</small></th>
                         <th>Resultado</th>
                       </tr>
                     </thead>

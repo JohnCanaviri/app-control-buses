@@ -1,7 +1,7 @@
 import { salir, sincronizar, useSync } from './sync';
 
 const hora = (t: number | null) => (t ? new Date(t).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) : '—');
-const NOMBRE_ROL = { admin: 'administrador', empleado: 'empleado (registra y ve, no borra)', pendiente: 'esperando aprobación', rechazado: 'sin acceso' };
+const NOMBRE_ROL = { admin: 'administrador', empleado: 'empleado (registra y ve, no borra)', observador: 'observador (solo lectura)', pendiente: 'esperando aprobación', rechazado: 'sin acceso' };
 
 // Indicador pequeño para la barra de arriba.
 export function EstadoNube() {
