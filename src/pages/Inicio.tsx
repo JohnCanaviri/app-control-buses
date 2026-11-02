@@ -93,7 +93,7 @@ function Ventana({ titulo, cerrar, children }: { titulo: string; cerrar: () => v
 }
 
 // Registro aparte: no se mezcla con los gastos de los viajes ni con la ida.
-function VentanaGasto({ base, fecha: inicial, cerrar }: { base?: GastoGeneral; fecha: string; cerrar: () => void }) {
+export function VentanaGasto({ base, fecha: inicial, cerrar }: { base?: GastoGeneral; fecha: string; cerrar: () => void }) {
   const conocida = !base || CATEGORIAS_GENERALES.includes(base.categoria);
   const [fecha, setFecha] = useState(base?.fecha ?? inicial);
   const [bus, setBus] = useState(base ? base.bus || 'General' : BUSES[0]);

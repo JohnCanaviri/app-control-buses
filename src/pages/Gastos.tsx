@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, BUSES } from '../db';
+import { db, BUSES, type GastoGeneral } from '../db';
 import { bs, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
 import { Botones, PestanasGastos, SelectorMes, Tarjeta } from '../components';
 import { esDiesel } from '../diesel';
+import { usePermisos } from '../sync';
+import { VentanaGasto } from './Inicio';
 
 const TODOS = 'Todos';
-interface Fila { fecha: string; concepto: string; monto: number; obs: string }
+// «viaje»: el gasto es de un viaje (se edita en el viaje); «general»: gasto del monto total.
+interface Fila { fecha: string; concepto: string; monto: number; obs: string; viaje?: string; general?: GastoGeneral }
 
 // Gastos por bus: combustible (solo diésel) y normales (todo lo demás, de los viajes y del monto total).
 // No se mezclan con los montos de ida.
@@ -18,6 +22,8 @@ export default function Gastos() {
   const mes = Number(q.get('mes')) || hoy.getMonth() + 1;
   const cambiar = (b: string, a: number, m: number) => ir(`/gastos?bus=${b}&anio=${a}&mes=${m}`);
   const [desde, hasta] = rangoMes(anio, mes);
+  const { puedeEditar } = usePermisos();
+  const [editar, setEditar] = useState<GastoGeneral | undefined>();
 
   const datos = useLiveQuery(async () => ({
     viajes: await db.viajes.where('fecha').between(desde, hasta, true, true).toArray(),
@@ -29,9 +35,9 @@ export default function Gastos() {
   const filas = (bus === TODOS ? BUSES : [bus]).map((b) => {
     const vs = datos.viajes.filter((v) => v.bus === b).sort((x, y) => x.fecha.localeCompare(y.fecha));
     const todos: Fila[] = [
-      ...vs.flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones }))),
+      ...vs.flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones, viaje: v.id }))),
       ...datos.generales.filter((g) => g.bus === b)
-        .map((g) => ({ concepto: `${g.categoria} (monto total)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones })),
+        .map((g) => ({ concepto: `${g.categoria} (monto total)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones, general: g })),
     ].sort((x, y) => x.fecha.localeCompare(y.fecha));
     const combustible = todos.filter((g) => esDiesel(g.concepto));
     const normales = todos.filter((g) => !esDiesel(g.concepto));
@@ -56,15 +62,17 @@ export default function Gastos() {
             <Tarjeta titulo="Gastos normales" valor={bs(suma(f.normales))} color="naranja" nota="Viático, peaje, mantenimiento y otros" />
             <Tarjeta titulo="Gastos combustible" valor={bs(suma(f.combustible))} color="naranja" nota="Solo diésel" />
           </section>
-          <TablaGastos titulo="Normales" lista={f.normales} />
-          <TablaGastos titulo="Combustible" lista={f.combustible} />
+          <TablaGastos titulo="Normales" lista={f.normales} editar={puedeEditar ? setEditar : undefined} />
+          <TablaGastos titulo="Combustible" lista={f.combustible} editar={puedeEditar ? setEditar : undefined} />
         </section>
       ))}
+      <p className="no-imprimir"><small>Toca un gasto para corregirlo (los de un viaje se corrigen en el viaje).</small></p>
+      {editar && <VentanaGasto base={editar} fecha={editar.fecha} cerrar={() => setEditar(undefined)} />}
     </>
   );
 }
 
-function TablaGastos({ titulo, lista }: { titulo: string; lista: Fila[] }) {
+function TablaGastos({ titulo, lista, editar }: { titulo: string; lista: Fila[]; editar?: (g: GastoGeneral) => void }) {
   return (
     <>
       <h3>{titulo} ({lista.length})</h3>
@@ -74,7 +82,8 @@ function TablaGastos({ titulo, lista }: { titulo: string; lista: Fila[] }) {
             <thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Observaciones</th></tr></thead>
             <tbody>
               {lista.map((g, i) => (
-                <tr key={i}><td>{fechaCorta(g.fecha)}</td><td>{g.concepto}</td><td className="num">{bs(g.monto)}</td><td className="obs">{g.obs}</td></tr>
+                <tr key={i} className={editar ? 'clic' : ''} title={editar ? 'Clic para editar' : undefined}
+                  onClick={() => { if (!editar) return; if (g.general) editar(g.general); else if (g.viaje) ir(`/viaje/${g.viaje}`); }}><td>{fechaCorta(g.fecha)}</td><td>{g.concepto}</td><td className="num">{bs(g.monto)}</td><td className="obs">{g.obs}</td></tr>
               ))}
             </tbody>
           </table>
