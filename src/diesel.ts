@@ -22,3 +22,22 @@ export function controlDiesel(viajes: Viaje[], cargas: GastoGeneral[]) {
     .map((viaje, i) => ({ viaje, cubierto: i < cubiertos }));
   return { cargas: ordenadas, cubiertos, filas };
 }
+
+export const esDiesel = (concepto: string) => /di[eé]sel/i.test(concepto);
+
+// Saca del viaje las cargas de diésel (de «Gastos» u «Otros gastos») y las convierte en gastos
+// del monto total de ese bus y día. null = el viaje no tenía diésel.
+export function separarDiesel(v: Viaje): { viaje: Viaje; cargas: GastoGeneral[] } | null {
+  const todos = [...v.gastos, ...v.otrosGastos].filter((g) => esDiesel(g.concepto) && g.monto);
+  if (!todos.length) return null;
+  const ahora = Date.now();
+  return {
+    viaje: { ...v, gastos: v.gastos.filter((g) => !esDiesel(g.concepto)), otrosGastos: v.otrosGastos.filter((g) => !esDiesel(g.concepto)), actualizado: ahora },
+    cargas: todos.map((g, i) => ({
+      // id fijo por viaje: si dos equipos lo pasan a la vez no se duplica.
+      id: `${v.id}-diesel-${i}`, fecha: v.fecha, bus: v.bus, categoria: DIESEL, monto: g.monto,
+      observaciones: [`Del viaje ${v.destino || ''}`.trim(), v.observaciones].filter(Boolean).join(' · '),
+      creado: ahora, actualizado: ahora,
+    })),
+  };
+}

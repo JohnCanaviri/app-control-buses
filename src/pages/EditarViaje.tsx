@@ -6,6 +6,7 @@ import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir } from '../router';
 import { usePermisos } from '../sync';
 import { Botones, Insignia } from '../components';
+import { separarDiesel } from '../diesel';
 
 // En el formulario los números se guardan como texto para poder escribir «50,5».
 interface LineaD { cantidad: string; precio: string }
@@ -93,7 +94,10 @@ export default function EditarViaje({ id }: { id?: string }) {
     if (!viaje.boletosIda.length && !viaje.montoRegistrado && !viaje.gastos.length) {
       setAviso('Anota al menos los boletos de ida o el monto que trajeron.'); return;
     }
-    await guardarDatos('viajes', [viaje]);
+    // El diésel no se guarda en el viaje: va a «gastos del monto total» del mes.
+    const d = separarDiesel(viaje);
+    if (d) await guardarDatos('gastos', d.cargas.map((c) => ({ ...c, id: uid() })));
+    await guardarDatos('viajes', [d ? d.viaje : viaje]);
     try { localStorage.setItem(BUS_GUARDADO, b.bus); } catch { /* sin almacenamiento */ }
     if (otro) { setBase(undefined); setB({ ...nuevoBorrador(), bus: b.bus, fecha: b.fecha }); setAviso('✔ Viaje guardado. Puedes registrar otro.'); window.scrollTo(0, 0); }
     else ir(`/consulta?bus=${b.bus}&anio=${b.fecha.slice(0, 4)}&mes=${Number(b.fecha.slice(5, 7))}`);
@@ -180,7 +184,7 @@ export default function EditarViaje({ id }: { id?: string }) {
           <section className="panel borde-naranja">
             <h2>4. Gastos</h2>
             <EditorGastos gastos={b.gastos} onChange={(g) => set('gastos', g)} conceptos={CONCEPTOS_GASTOS} />
-            <h3>Otros gastos <small>(mantenimiento; se restan después)</small></h3>
+            <h3>Otros gastos <small>(mantenimiento u otros; se restan después. El diésel pasa solo a gastos del monto total)</small></h3>
             <EditorGastos gastos={b.otrosGastos} onChange={(g) => set('otrosGastos', g)} conceptos={CONCEPTOS_OTROS} />
           </section>
 
@@ -251,15 +255,14 @@ function EditorGastos({ gastos, onChange, conceptos }: { gastos: GastoD[]; onCha
     <div className="editor">
       {gastos.map((g, i) => (
         <div className="editor-fila gasto" key={i}>
-          <select value={g.concepto} onChange={(e) => cambiar(i, 'concepto', e.target.value)}>
-            {[...new Set([...conceptos, g.concepto].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <input value={g.concepto} placeholder="Concepto" onChange={(e) => cambiar(i, 'concepto', e.target.value)} />
           <input inputMode="decimal" value={g.monto} placeholder="Monto" onChange={(e) => cambiar(i, 'monto', e.target.value)} />
           <button type="button" className="quitar" aria-label="Quitar" onClick={() => onChange(gastos.filter((_, j) => j !== i))}>✕</button>
         </div>
       ))}
       <div className="chips">
         {conceptos.map((cpt) => <button type="button" key={cpt} onClick={() => onChange([...gastos, { concepto: cpt, monto: '' }])}>+ {cpt}</button>)}
+        <button type="button" className="otro" onClick={() => onChange([...gastos, { concepto: '', monto: '' }])}>+ Otro (escribir)</button>
       </div>
     </div>
   );

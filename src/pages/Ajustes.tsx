@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { crearRespaldo, db, leerConfig, restaurarRespaldo, type Respaldo } from '../db';
+import { crearRespaldo, db, leerConfig, migrarDiesel, restaurarRespaldo, type Respaldo } from '../db';
 import { TASA_IVA_POR_DEFECTO } from '../iva';
 import { PanelCuenta } from '../Cuenta';
 import { usePermisos } from '../sync';
@@ -69,6 +69,16 @@ export default function Ajustes() {
         </div>
         <p><small>El Excel exportado tiene las mismas columnas que tu hoja Registro (más los cálculos) y se puede volver a importar.</small></p>
       </section>
+
+      {puedeImportar && <section className="panel">
+        <h2>Diésel de los viajes</h2>
+        <p>Pasa todo el diésel anotado en los viajes a «gastos del monto total» de su mes y bus, y lo quita de los viajes. Repetirlo no duplica nada.</p>
+        <button type="button" className="boton primario" onClick={async () => {
+          if (!confirm('¿Pasar el diésel de todos los viajes a gastos del monto total? La «Llegada neto» de esos viajes subirá.')) return;
+          const n = await migrarDiesel();
+          alert(n ? `✔ Diésel pasado de ${n} viajes.` : 'No había diésel en los viajes.');
+        }}>⛽ Pasar diésel a gastos del mes</button>
+      </section>}
 
       <section className="panel">
         <h2>Copia de seguridad</h2>

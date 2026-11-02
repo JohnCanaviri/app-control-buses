@@ -93,6 +93,20 @@ export async function marcarTodoParaSubir() {
   });
 }
 
+// Pasa el diésel anotado en los viajes a «gastos del monto total» (una sola vez basta; repetirlo no duplica).
+export async function migrarDiesel(): Promise<number> {
+  const { separarDiesel } = await import('./diesel');
+  const viajes: Viaje[] = [];
+  const cargas: GastoGeneral[] = [];
+  for (const v of await db.viajes.toArray()) {
+    const r = separarDiesel(v);
+    if (r) { viajes.push(r.viaje); cargas.push(...r.cargas); }
+  }
+  await guardar('gastos', cargas);
+  await guardar('viajes', viajes);
+  return viajes.length;
+}
+
 export async function leerConfig<T>(clave: string, porDefecto: T): Promise<T> {
   return ((await db.config.get(clave))?.valor as T) ?? porDefecto;
 }

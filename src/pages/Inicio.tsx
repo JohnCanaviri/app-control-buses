@@ -95,6 +95,7 @@ function VentanaGasto({ fecha: inicial, cerrar }: { fecha: string; cerrar: () =>
   const [fecha, setFecha] = useState(inicial);
   const [bus, setBus] = useState(BUSES[0]);
   const [categoria, setCategoria] = useState(DIESEL);
+  const [otra, setOtra] = useState('');
   const [monto, setMonto] = useState('');
   const [obs, setObs] = useState('');
   const [error, setError] = useState('');
@@ -102,8 +103,9 @@ function VentanaGasto({ fecha: inicial, cerrar }: { fecha: string; cerrar: () =>
   async function guardarGasto() {
     const m = aNumero(monto);
     if (!fecha || !m) { setError('Falta la fecha o el monto.'); return; }
+    if (categoria === 'Otro' && !otra.trim()) { setError('Escribe qué gasto es.'); return; }
     const ahora = Date.now();
-    await guardar('gastos', [{ id: uid(), fecha, bus: bus === 'General' ? '' : bus, categoria, monto: m, observaciones: obs.trim(), creado: ahora, actualizado: ahora }]);
+    await guardar('gastos', [{ id: uid(), fecha, bus: bus === 'General' ? '' : bus, categoria: categoria === 'Otro' ? otra.trim() : categoria, monto: m, observaciones: obs.trim(), creado: ahora, actualizado: ahora }]);
     cerrar();
   }
 
@@ -114,6 +116,7 @@ function VentanaGasto({ fecha: inicial, cerrar }: { fecha: string; cerrar: () =>
       <Botones opciones={[...BUSES, 'General']} valor={bus} onChange={setBus} />
       <label>Categoría</label>
       <Botones opciones={CATEGORIAS_GENERALES} valor={categoria} onChange={setCategoria} />
+      {categoria === 'Otro' && <input value={otra} placeholder="¿Qué gasto es? (ej.: lavado, multa…)" onChange={(e) => setOtra(e.target.value)} />}
       <div className="fila-campos">
         <div><label>Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></div>
         <div><label>Monto (Bs)</label><input inputMode="decimal" value={monto} placeholder="0" onChange={(e) => setMonto(e.target.value)} /></div>
