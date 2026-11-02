@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db, BUSES, eliminar as borrarDatos, guardar as guardarDatos } from '../db';
 import { calcular, type Viaje } from '../calc';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir } from '../router';
 import { usePermisos } from '../sync';
-import { Botones, Insignia } from '../components';
+import { Autocompletar, Botones, Insignia } from '../components';
 import { separarDiesel } from '../diesel';
 
 // En el formulario los números se guardan como texto para poder escribir «50,5».
@@ -72,7 +71,6 @@ export default function EditarViaje({ id }: { id?: string }) {
   const [base, setBase] = useState<Viaje | undefined>();
   const [b, setB] = useState<Borrador | null>(id ? null : nuevoBorrador());
   const [aviso, setAviso] = useState('');
-  const destinos = useLiveQuery(async () => [...new Set((await db.viajes.toArray()).map((v) => v.destino).filter(Boolean))].sort(), []);
 
   useEffect(() => {
     if (!id) return;
@@ -128,8 +126,7 @@ export default function EditarViaje({ id }: { id?: string }) {
               <div><label>Fecha</label><input type="date" value={b.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
               <div>
                 <label>Destino</label>
-                <input list="destinos" value={b.destino} placeholder="Lp, Cbba…" onChange={(e) => set('destino', e.target.value)} />
-                <datalist id="destinos">{destinos?.map((d) => <option key={d} value={d} />)}</datalist>
+                <Autocompletar fuente="destinos" value={b.destino} placeholder="Lp, Cbba…" onChange={(v) => set('destino', v)} />
               </div>
             </div>
             <div className="fila-campos">
@@ -255,7 +252,7 @@ function EditorGastos({ gastos, onChange, conceptos }: { gastos: GastoD[]; onCha
     <div className="editor">
       {gastos.map((g, i) => (
         <div className="editor-fila gasto" key={i}>
-          <input value={g.concepto} placeholder="Concepto" onChange={(e) => cambiar(i, 'concepto', e.target.value)} />
+          <Autocompletar fuente="conceptosGasto" extra={conceptos} value={g.concepto} placeholder="Concepto" onChange={(v) => cambiar(i, 'concepto', v)} />
           <input inputMode="decimal" value={g.monto} placeholder="Monto" onChange={(e) => cambiar(i, 'monto', e.target.value)} />
           <button type="button" className="quitar" aria-label="Quitar" onClick={() => onChange(gastos.filter((_, j) => j !== i))}>✕</button>
         </div>

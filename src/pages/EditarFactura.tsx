@@ -4,6 +4,7 @@ import { TASA_IVA_POR_DEFECTO } from '../iva';
 import { usePermisos } from '../sync';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir, parametros, useRuta } from '../router';
+import { Autocompletar } from '../components';
 
 interface Borrador { fecha: string; numero: string; proveedor: string; concepto: string; monto: string; observaciones: string; foto?: string }
 
@@ -143,9 +144,9 @@ export default function EditarFactura({ id }: { id?: string }) {
               <div><label>N° de factura</label><input inputMode="numeric" value={b.numero} onChange={(e) => set('numero', e.target.value)} /></div>
             </div>
             <label>Proveedor / NIT</label>
-            <input value={b.proveedor} placeholder="Ej.: YPFB / NIT 1020703023" onChange={(e) => set('proveedor', e.target.value)} />
+            <Autocompletar fuente="proveedores" value={b.proveedor} placeholder="Ej.: YPFB / NIT 1020703023" onChange={(v) => set('proveedor', v)} />
             <label>Concepto</label>
-            <input value={b.concepto} placeholder="¿Qué se compró?" onChange={(e) => set('concepto', e.target.value)} />
+            <Autocompletar fuente="conceptosFactura" extra={CONCEPTOS} value={b.concepto} placeholder="¿Qué se compró?" onChange={(v) => set('concepto', v)} />
             <div className="chips">
               {CONCEPTOS.map((c) => <button type="button" key={c} onClick={() => set('concepto', c)}>{c}</button>)}
             </div>

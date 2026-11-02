@@ -5,7 +5,7 @@ import { totalizar } from '../calc';
 import { aNumero, bs, fechaCorta, hoyISO, MESES, rangoMes, uid } from '../format';
 import { ir } from '../router';
 import { usePermisos, useSync } from '../sync';
-import { Botones, SelectorMes } from '../components';
+import { Autocompletar, Botones, SelectorMes } from '../components';
 import { CATEGORIAS_GENERALES, controlDiesel, DIESEL, esDiesel, sobranteAnterior, viajesQueCubre, vueltasPorMonto } from '../diesel';
 import { BotonEscanear } from './EditarFactura';
 
@@ -126,7 +126,7 @@ export function VentanaGasto({ base, fecha: inicial, cerrar }: { base?: GastoGen
       <Botones opciones={[...BUSES, 'General']} valor={bus} onChange={setBus} />
       <label>Categoría</label>
       <Botones opciones={CATEGORIAS_GENERALES} valor={categoria} onChange={setCategoria} />
-      {categoria === 'Otro' && <input value={otra} placeholder="¿Qué gasto es? (ej.: lavado, multa…)" onChange={(e) => setOtra(e.target.value)} />}
+      {categoria === 'Otro' && <Autocompletar fuente="categoriasGasto" value={otra} placeholder="¿Qué gasto es? (ej.: lavado, multa…)" onChange={setOtra} />}
       <div className="fila-campos">
         <div><label>Fecha</label><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></div>
         <div><label>Monto (Bs)</label><input inputMode="decimal" value={monto} placeholder="0" onChange={(e) => setMonto(e.target.value)} /></div>

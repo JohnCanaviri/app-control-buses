@@ -417,3 +417,9 @@ input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%;
 .fila-campos > * { min-width: 0; }
 input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: none; min-height: 42px; }
 input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-date-and-time-value { text-align: left; }
+
+/* --- Autocompletar: sugerencias al escribir --- */
+.autocompletar { position: relative; }
+.sugerencias { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 2px); margin: 0; padding: 4px 0; list-style: none; background: #fffdf6; border: 1.5px solid var(--tinta); border-radius: var(--radio); box-shadow: var(--sombra); max-height: 260px; overflow-y: auto; }
+.sugerencias li { padding: 9px 12px; cursor: pointer; }
+.sugerencias li:hover, .sugerencias li.sel { background: var(--senal-t); }
