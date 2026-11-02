@@ -411,3 +411,9 @@ input:focus, select:focus, textarea:focus { outline: 3px solid var(--senal); out
 .ticks { font-size: 1.2rem; letter-spacing: .1em; }
 .contador { font-family: var(--f-num); background: var(--fact); color: #fff; padding: 4px 10px; border-radius: var(--radio); }
 @media (max-width: 700px) { .panel.principal { grid-template-columns: 1fr 1fr; } }
+
+/* iPhone: los campos de fecha/hora tienen ancho propio y se salían de su columna */
+input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; }
+.fila-campos > * { min-width: 0; }
+input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: none; min-height: 42px; }
+input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-date-and-time-value { text-align: left; }
