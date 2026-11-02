@@ -5,22 +5,38 @@ import type { GastoGeneral } from './db';
 export const CATEGORIAS_GENERALES = ['Diésel', 'Sueldos', 'Impuestos', 'Mantenimiento', 'Otro'];
 export const DIESEL = 'Diésel';
 
-// 2000–4000 → 1 viaje · 4500–7000 → 2 · más de 7900 → 3 · otros montos no cubren viajes.
-export function viajesQueCubre(monto: number): number {
+// 2000–4000 → 1 viaje · 4500–7000 → 2 · más de 7900 → 3 · otros montos: 0 (fuera de rango).
+export function vueltasPorMonto(monto: number): number {
   if (monto > 7900) return 3;
   if (monto >= 4500 && monto <= 7000) return 2;
   if (monto >= 2000 && monto <= 4000) return 1;
   return 0;
 }
 
-// Las cargas cubren los viajes del bus en orden de fecha; lo que no alcanza queda sin marcar.
-export function controlDiesel(viajes: Viaje[], cargas: GastoGeneral[]) {
+// Fuera de rango vale lo que indicó quien lo anotó («vueltas»); sin indicar, no cuenta.
+export const viajesQueCubre = (monto: number, vueltas?: number) => vueltasPorMonto(monto) || vueltas || 0;
+
+const mesDe = (fecha: string) => fecha.slice(0, 7);
+
+// Vueltas de diésel que sobraron de los meses anteriores (pasan al siguiente mes).
+export function sobranteAnterior(viajes: Viaje[], cargas: GastoGeneral[]): number {
+  const meses = [...new Set([...viajes.map((v) => mesDe(v.fecha)), ...cargas.map((c) => mesDe(c.fecha))])].sort();
+  let sobra = 0;
+  for (const m of meses) {
+    const vueltas = cargas.filter((c) => mesDe(c.fecha) === m).reduce((s, c) => s + viajesQueCubre(c.monto, c.vueltas), 0);
+    sobra = Math.max(0, sobra + vueltas - viajes.filter((v) => mesDe(v.fecha) === m).length);
+  }
+  return sobra;
+}
+
+// Las cargas (más lo que sobró antes) cubren los viajes del bus en orden de fecha; lo que no alcanza queda sin marcar.
+export function controlDiesel(viajes: Viaje[], cargas: GastoGeneral[], arrastre = 0) {
   const ordenadas = [...cargas].sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const cubiertos = ordenadas.reduce((s, c) => s + viajesQueCubre(c.monto), 0);
+  const cubiertos = arrastre + ordenadas.reduce((s, c) => s + viajesQueCubre(c.monto, c.vueltas), 0);
   const filas = [...viajes]
     .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.creado - b.creado)
     .map((viaje, i) => ({ viaje, cubierto: i < cubiertos }));
-  return { cargas: ordenadas, cubiertos, filas };
+  return { cargas: ordenadas, cubiertos, filas, pasaAlSiguiente: Math.max(0, cubiertos - filas.length) };
 }
 
 export const esDiesel = (concepto: string) => /di[eé]sel/i.test(concepto);

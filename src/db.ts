@@ -20,6 +20,7 @@ export interface GastoGeneral {
   fecha: string; // aaaa-mm-dd
   bus: string;
   categoria: string; // p. ej. Diésel
+  vueltas?: number; // diésel fuera de los rangos: cuántas vueltas cubre según quien lo anotó
   monto: number;
   observaciones: string;
   creado: number;

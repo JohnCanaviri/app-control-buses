@@ -3,11 +3,12 @@ import { db, BUSES } from '../db';
 import { bs, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
 import { Botones, PestanasGastos, SelectorMes, Tarjeta } from '../components';
+import { esDiesel } from '../diesel';
 
 const TODOS = 'Todos';
 interface Fila { fecha: string; concepto: string; monto: number; obs: string }
 
-// Gastos por bus: normales (viático, peaje) y fuertes (otros gastos y gastos del monto total).
+// Gastos por bus: combustible (solo diésel) y normales (todo lo demás, de los viajes y del monto total).
 // No se mezclan con los montos de ida.
 export default function Gastos() {
   const q = parametros(useRuta());
@@ -27,13 +28,14 @@ export default function Gastos() {
   const suma = (l: Fila[]) => l.reduce((s, g) => s + g.monto, 0);
   const filas = (bus === TODOS ? BUSES : [bus]).map((b) => {
     const vs = datos.viajes.filter((v) => v.bus === b).sort((x, y) => x.fecha.localeCompare(y.fecha));
-    const normales: Fila[] = vs.flatMap((v) => v.gastos.map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones })));
-    const fuertes: Fila[] = [
-      ...vs.flatMap((v) => v.otrosGastos.map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones }))),
+    const todos: Fila[] = [
+      ...vs.flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones }))),
       ...datos.generales.filter((g) => g.bus === b)
         .map((g) => ({ concepto: `${g.categoria} (monto total)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones })),
     ].sort((x, y) => x.fecha.localeCompare(y.fecha));
-    return { b, normales, fuertes };
+    const combustible = todos.filter((g) => esDiesel(g.concepto));
+    const normales = todos.filter((g) => !esDiesel(g.concepto));
+    return { b, normales, combustible };
   });
 
   return (
@@ -51,11 +53,11 @@ export default function Gastos() {
         <section className="panel borde-naranja" key={f.b}>
           <h2>{f.b}</h2>
           <section className="tarjetas">
-            <Tarjeta titulo="Gastos normales" valor={bs(suma(f.normales))} color="naranja" nota="Viático y peaje" />
-            <Tarjeta titulo="Gastos fuertes" valor={bs(suma(f.fuertes))} color="naranja" nota="Mantenimiento, diésel…" />
+            <Tarjeta titulo="Gastos normales" valor={bs(suma(f.normales))} color="naranja" nota="Viático, peaje, mantenimiento y otros" />
+            <Tarjeta titulo="Gastos combustible" valor={bs(suma(f.combustible))} color="naranja" nota="Solo diésel" />
           </section>
           <TablaGastos titulo="Normales" lista={f.normales} />
-          <TablaGastos titulo="Fuertes" lista={f.fuertes} />
+          <TablaGastos titulo="Combustible" lista={f.combustible} />
         </section>
       ))}
     </>
