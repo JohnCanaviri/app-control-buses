@@ -18,8 +18,8 @@ interface Borrador {
   gastos: GastoD[]; otrosGastos: GastoD[]; observaciones: string;
 }
 
-const CONCEPTOS_GASTOS = ['Viático', 'Peaje'];
-const CONCEPTOS_OTROS = ['Mantenimiento'];
+const CONCEPTOS_GASTOS = ['Viático', 'Peaje', 'Mantenimiento'];
+const CONCEPTOS_COMBUSTIBLE = ['Diésel'];
 const BUS_GUARDADO = 'ultimo-bus';
 
 function leerBus() {
@@ -184,8 +184,8 @@ export default function EditarViaje({ id }: { id?: string }) {
           <section className="panel borde-naranja">
             <h2>4. Gastos</h2>
             <EditorGastos gastos={b.gastos} onChange={(g) => set('gastos', g)} conceptos={CONCEPTOS_GASTOS} />
-            <h3>Otros gastos <small>(mantenimiento u otros; se restan después. El diésel pasa solo a gastos del monto total)</small></h3>
-            <EditorGastos gastos={b.otrosGastos} onChange={(g) => set('otrosGastos', g)} conceptos={CONCEPTOS_OTROS} />
+            <h3>Combustible <small>(solo anotar si se echó diésel; pasa solo a gastos del monto total)</small></h3>
+            <EditorGastos gastos={b.otrosGastos} onChange={(g) => set('otrosGastos', g)} conceptos={CONCEPTOS_COMBUSTIBLE} />
           </section>
 
           <section className="panel">
@@ -204,7 +204,7 @@ export default function EditarViaje({ id }: { id?: string }) {
               <dt className="sep">Monto que trajeron</dt><dd className="sep">{bs(c.montoRegistrado)}</dd>
               <dt>Gastos</dt><dd>− {bs(c.totalGastos)}</dd>
               <dt>Total menos gastos</dt><dd>{bs(c.totalMenosGastos)}</dd>
-              <dt>Otros gastos</dt><dd>− {bs(c.totalOtrosGastos)}</dd>
+              <dt>Combustible / otros</dt><dd>− {bs(c.totalOtrosGastos)}</dd>
               <dt className="fuerte">Llegada neto</dt><dd className={`fuerte grande ${c.netoFinal < 0 ? 'negativo' : ''}`}>{bs(c.netoFinal)}</dd>
             </dl>
             <div className="acciones">

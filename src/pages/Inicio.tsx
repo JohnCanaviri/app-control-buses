@@ -94,6 +94,7 @@ function Ventana({ titulo, cerrar, children }: { titulo: string; cerrar: () => v
 
 // Registro aparte: no se mezcla con los gastos de los viajes ni con la ida.
 export function VentanaGasto({ base, fecha: inicial, cerrar }: { base?: GastoGeneral; fecha: string; cerrar: () => void }) {
+  const { puedeBorrar } = usePermisos();
   const conocida = !base || CATEGORIAS_GENERALES.includes(base.categoria);
   const [fecha, setFecha] = useState(base?.fecha ?? inicial);
   const [bus, setBus] = useState(base ? base.bus || 'General' : BUSES[0]);
@@ -139,6 +140,11 @@ export function VentanaGasto({ base, fecha: inicial, cerrar }: { base?: GastoGen
       <textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} />
       <div className="acciones fila">
         <button type="button" className="boton primario" onClick={guardarGasto}>Guardar</button>
+        {base && puedeBorrar && <button type="button" className="boton peligro" onClick={async () => {
+          if (!confirm(`¿Eliminar ${base.categoria} de ${bs(base.monto)} del ${fechaCorta(base.fecha)}? No se puede deshacer.`)) return;
+          await eliminar('gastos', [base.id]);
+          cerrar();
+        }}>Eliminar</button>}
         <button type="button" className="boton suave" onClick={cerrar}>Cancelar</button>
       </div>
     </Ventana>

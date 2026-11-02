@@ -21,7 +21,7 @@ export default function Mantenimientos() {
   if (!datos) return null;
 
   const filas = [
-    ...datos.viajes.flatMap((v) => v.otrosGastos.filter((g) => esMant(g.concepto))
+    ...datos.viajes.flatMap((v) => [...v.gastos, ...v.otrosGastos].filter((g) => esMant(g.concepto))
       .map((g) => ({ id: v.id, viaje: true, bus: v.bus, fecha: v.fecha, monto: g.monto, obs: v.observaciones }))),
     ...datos.generales.filter((g) => esMant(g.categoria))
       .map((g) => ({ id: g.id, viaje: false, bus: g.bus || '—', fecha: g.fecha, monto: g.monto, obs: g.observaciones })),
