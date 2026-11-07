@@ -269,7 +269,8 @@ export function comparar(viajes: Viaje[], totales: TotalExcel[]): Comparacion[] 
     .map((t) => {
       const pref = `${t.anio}-${String(t.mes).padStart(2, '0')}`;
       const tt = totalizar(viajes.filter((v) => v.bus === t.bus && v.fecha.startsWith(pref)));
-      const app = { montoIda: tt.montoIda, idaNeto: tt.idaNeto, montoLlegada: tt.montoRegistrado, netoFinal: tt.netoFinal };
+      // El Excel restaba el diésel dentro de cada viaje; la app lo cuenta aparte como gasto del mes.
+      const app = { montoIda: tt.montoIda, idaNeto: tt.idaNeto, montoLlegada: tt.montoRegistrado, netoFinal: Math.round((tt.netoFinal - tt.dieselViaje) * 100) / 100 };
       const cuadra = iguales(app.montoIda, t.montoIda) && iguales(app.montoLlegada, t.montoLlegada) && iguales(app.netoFinal, t.netoFinal)
         && (t.idaNeto === null || iguales(app.idaNeto, t.idaNeto));
       return { ...t, app, cuadra };

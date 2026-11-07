@@ -6,7 +6,7 @@
 //   Llegada final   = llegada neto − diésel − otros gastos grandes (sueldos, impuestos, mantenimiento…)  («queda»)
 import { calcular, r2, type Viaje } from './calc';
 import type { GastoGeneral } from './db';
-import { esDiesel, vueltasDe } from './diesel';
+import { cargasEfectivas, esDiesel, vueltasDe } from './diesel';
 import { diasDelMes } from './resumen';
 
 export interface Cuentas {
@@ -28,8 +28,9 @@ const vacias = (): Cuentas => ({
   gastosViaje: 0, vueltaNeta: 0, diesel: 0, otrosGrandes: 0, queda: 0,
 });
 
-export function cuentas(viajes: Viaje[], grandes: GastoGeneral[]): Cuentas {
+export function cuentas(viajes: Viaje[], grandesSinViajes: GastoGeneral[]): Cuentas {
   const t = vacias();
+  const grandes = cargasEfectivas(viajes, grandesSinViajes); // el diésel anotado en viajes antiguos, una sola vez
   for (const v of viajes) {
     const c = calcular(v);
     t.viajes++;

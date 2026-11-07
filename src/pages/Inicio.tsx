@@ -7,7 +7,7 @@ import { ir } from '../router';
 import { usePermisos, useSync } from '../sync';
 import { Autocompletar, Botones, SelectorBus, SelectorMes, ViajesDelMes } from '../components';
 import {
-  CATEGORIAS_GENERALES, controlDiesel, DIESEL, esDiesel, estadoDiesel, faltanVueltas, sobranteAnterior, vueltasDe, vueltasPorRango,
+  CATEGORIAS_GENERALES, cargasEfectivas, controlDiesel, DIESEL, esDiesel, estadoDiesel, faltanVueltas, sobranteAnterior, vueltasDe, vueltasPorRango,
 } from '../diesel';
 import { porBus } from '../informe';
 import { BotonEscanear } from './EditarFactura';
@@ -28,7 +28,7 @@ export default function Inicio() {
   const hoyTxt = hoyISO();
   const tanque = useLiveQuery(async () => {
     const vs = await db.viajes.where('fecha').belowOrEqual(hoyTxt).toArray();
-    const gs = (await db.gastos.where('fecha').belowOrEqual(hoyTxt).toArray()).filter((g) => esDiesel(g.categoria));
+    const gs = cargasEfectivas(vs, (await db.gastos.where('fecha').belowOrEqual(hoyTxt).toArray()).filter((g) => esDiesel(g.categoria)));
     return BUSES.map((b) => estadoDiesel(b, vs, gs, hoyTxt));
   }, [hoyTxt]);
   const pendientesIda = useLiveQuery(async () => (await db.viajes.filter((v) => !!v.sinBoletoIda && calcular(v).idaPendiente).toArray())
@@ -252,11 +252,12 @@ function VentanaDiesel({ viajes, generales, mes, desde, cerrar }: {
 }) {
   const [bus, setBus] = useState(BUSES[0]);
   // Lo que sobró de diésel en los meses anteriores se suma a este mes.
-  const arrastre = useLiveQuery(async () => sobranteAnterior(
-    await db.viajes.where('[bus+fecha]').between([bus, ''], [bus, desde]).toArray(),
-    (await db.gastos.where('fecha').below(desde).toArray()).filter((g) => g.bus === bus && esDiesel(g.categoria)),
-  ), [bus, desde]) ?? 0;
-  const d = controlDiesel(viajes.filter((v) => v.bus === bus), generales.filter((g) => g.bus === bus && esDiesel(g.categoria)), arrastre);
+  const arrastre = useLiveQuery(async () => {
+    const vs = await db.viajes.where('[bus+fecha]').between([bus, ''], [bus, desde]).toArray();
+    return sobranteAnterior(vs, cargasEfectivas(vs, (await db.gastos.where('fecha').below(desde).toArray()).filter((g) => g.bus === bus && esDiesel(g.categoria))));
+  }, [bus, desde]) ?? 0;
+  const delBus = viajes.filter((v) => v.bus === bus);
+  const d = controlDiesel(delBus, cargasEfectivas(delBus, generales.filter((g) => g.bus === bus && esDiesel(g.categoria))), arrastre);
   const quedan = d.pasaAlSiguiente;
   return (
     <Ventana titulo={`Control de diésel — ${mes}`} cerrar={cerrar}>

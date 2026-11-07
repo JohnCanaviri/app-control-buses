@@ -1,5 +1,5 @@
 // Control de diésel: cuántos viajes (vueltas) cubre cada carga.
-import type { Viaje } from './calc';
+import { dieselDelViaje, type Viaje } from './calc';
 import type { GastoGeneral } from './db';
 
 export const CATEGORIAS_GENERALES = ['Diésel', 'Sueldos', 'Impuestos', 'Mantenimiento', 'Otro'];
@@ -91,4 +91,23 @@ export function separarDiesel(v: Viaje): { viaje: Viaje; cargas: GastoGeneral[] 
       creado: ahora, actualizado: ahora,
     })),
   };
+}
+
+// Todas las cargas de diésel que cuentan, cada una UNA sola vez:
+// las de «gastos del monto total» y, de los viajes antiguos que traían el diésel anotado dentro,
+// solo las que no tienen ya una carga igual (mismo bus, mismo día y mismo monto) en gastos del mes.
+export function cargasEfectivas(viajes: Viaje[], cargas: GastoGeneral[]): GastoGeneral[] {
+  const libres = cargas.filter((c) => esDiesel(c.categoria)).map((c) => ({ c, usada: false }));
+  const extra: GastoGeneral[] = [];
+  for (const v of viajes) {
+    dieselDelViaje(v).forEach((g, i) => {
+      const igual = libres.find((x) => !x.usada && x.c.bus === v.bus && x.c.fecha === v.fecha && Math.abs(x.c.monto - g.monto) < 0.005);
+      if (igual) { igual.usada = true; return; } // ya está en gastos del mes: no se cuenta otra vez
+      extra.push({
+        id: `${v.id}-dv-${i}`, fecha: v.fecha, bus: v.bus, categoria: DIESEL, monto: g.monto,
+        observaciones: `Anotado dentro del viaje${v.destino ? ` a ${v.destino}` : ''}`, creado: v.creado, actualizado: v.actualizado,
+      });
+    });
+  }
+  return [...cargas, ...extra];
 }

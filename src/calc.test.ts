@@ -24,19 +24,23 @@ describe('calcular (igual que el Excel)', () => {
     expect(c.netoFinal).toBe(3200);
   });
 
-  it('03-10-26: con otros gastos (diésel) el neto sale negativo', () => {
+  it('03-10-26: el diésel anotado en el viaje NO se resta de su llegada (cuenta una sola vez, como gasto del mes)', () => {
     const c = calcular(viaje('43x50; 2x80; 10x70', '1x3599', 3599, 'Peaje 50; Veatico 50', 'Diesel 8400'));
     expect(c.boletosIda).toBe(55);
     expect(c.montoIda).toBe(3010);
     expect(c.totalMenosGastos).toBe(3499);
-    expect(c.netoFinal).toBe(-4901);
+    expect(c.netoFinal).toBe(3499);
+    expect(c.dieselViaje).toBe(8400);
+    expect(c.netoFinal - c.dieselViaje).toBe(-4901); // lo que mostraba el Excel
   });
 
   it('05-10-26: gastos con diésel dentro de gastos', () => {
     const c = calcular(viaje('37x40; 2x50; 2x70; 8x60', '1x3300', 3300, 'Peaje 50; Diesel 400; Veatico 50', 'Diesel 7500'));
     expect(c.montoIda).toBe(2200);
-    expect(c.totalGastos).toBe(500);
-    expect(c.netoFinal).toBe(-4700);
+    expect(c.totalGastos).toBe(100);
+    expect(c.dieselViaje).toBe(7900);
+    expect(c.netoFinal).toBe(3200);
+    expect(c.netoFinal - c.dieselViaje).toBe(-4700); // lo que mostraba el Excel
   });
 
   it('el descuento se resta solo a la ida', () => {

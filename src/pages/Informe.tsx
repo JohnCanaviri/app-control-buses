@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, BUSES, type GastoGeneral } from '../db';
 import type { Viaje } from '../calc';
 import { frase, informeMensual, notasDelDia, porBus, type Cuentas } from '../informe';
-import { vueltasDe, esDiesel } from '../diesel';
+import { cargasEfectivas, vueltasDe, esDiesel } from '../diesel';
 import { bs, diaSemana, entero, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
 import { PestanasResumen, SelectorBus, SelectorMes, ViajesDelMes } from '../components';
@@ -165,7 +165,7 @@ function Mensual({ viajes, grandes, bus, anio, mes }: {
       })}
       {t.idaPendientes > 0 && <p className="naranja-txt"><small>⚠ {t.idaPendientes} viaje(s) sin boletos de ida todavía no tienen anotado cuánto trajeron (se anota en Inicio).</small></p>}
 
-      <GastosDelMes grandes={bus === TODOS ? grandes : grandes.filter((g) => g.bus === bus)} t={t} />
+      <GastosDelMes grandes={bus === TODOS ? cargasEfectivas(viajes, grandes) : cargasEfectivas(viajes.filter((v) => v.bus === bus), grandes.filter((g) => g.bus === bus))} t={t} />
     </>
   );
 }

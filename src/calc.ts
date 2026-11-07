@@ -40,12 +40,18 @@ export interface Calculo {
   totalMenosGastos: number;
   totalOtrosGastos: number;
   netoFinal: number;
+  dieselViaje: number; // diésel anotado dentro del viaje (registros antiguos): NO se resta aquí, cuenta como gasto del mes
 }
 
 export const r2 = (n: number) => Math.round(n * 100) / 100;
 const cant = (ls: Linea[]) => ls.reduce((s, l) => s + l.cantidad, 0);
 const monto = (ls: Linea[]) => r2(ls.reduce((s, l) => s + l.cantidad * l.precio, 0));
 const suma = (gs: Gasto[]) => r2(gs.reduce((s, g) => s + g.monto, 0));
+// El diésel es siempre un gasto del mes (se descuenta una sola vez, al final). Si un viaje antiguo lo tiene
+// anotado dentro, no se resta de la llegada de ese viaje: así nunca se cuenta dos veces.
+const esDieselTxt = (c: string) => /di[eé]sel/i.test(c);
+const sinDiesel = (gs: Gasto[]) => gs.filter((g) => !esDieselTxt(g.concepto));
+export const dieselDelViaje = (v: Viaje): Gasto[] => [...v.gastos, ...v.otrosGastos].filter((g) => esDieselTxt(g.concepto) && g.monto);
 
 export const idaPendiente = (v: Viaje) => !!v.sinBoletoIda && (v.montoIdaSinBoleto === null || v.montoIdaSinBoleto === undefined);
 
@@ -62,8 +68,8 @@ export function calcular(v: Viaje): Calculo {
     else verificacion = 'DIFERENCIA';
   }
 
-  const totalGastos = suma(v.gastos);
-  const totalOtrosGastos = suma(v.otrosGastos);
+  const totalGastos = suma(sinDiesel(v.gastos));
+  const totalOtrosGastos = suma(sinDiesel(v.otrosGastos));
   const totalMenosGastos = r2(v.montoRegistrado - totalGastos);
   return {
     boletosIda: v.sinBoletoIda ? 0 : cant(v.boletosIda),
@@ -79,6 +85,7 @@ export function calcular(v: Viaje): Calculo {
     totalMenosGastos,
     totalOtrosGastos,
     netoFinal: r2(totalMenosGastos - totalOtrosGastos),
+    dieselViaje: suma(dieselDelViaje(v)),
   };
 }
 
@@ -95,6 +102,7 @@ export interface Totales {
   totalMenosGastos: number;
   totalOtrosGastos: number;
   netoFinal: number;
+  dieselViaje: number;
   faltaBoletos: number;
   idaPendientes: number; // viajes sin boletos de ida a los que falta anotar el monto
 }
@@ -103,7 +111,7 @@ export function totalizar(viajes: Viaje[]): Totales {
   const t: Totales = {
     viajes: viajes.length, boletosIda: 0, montoIda: 0, descuentoIda: 0, idaNeto: 0, boletosLlegada: 0,
     montoCalculadoLlegada: 0, montoRegistrado: 0, totalGastos: 0, totalMenosGastos: 0, totalOtrosGastos: 0,
-    netoFinal: 0, faltaBoletos: 0, idaPendientes: 0,
+    netoFinal: 0, dieselViaje: 0, faltaBoletos: 0, idaPendientes: 0,
   };
   for (const v of viajes) {
     const c = calcular(v);
@@ -118,6 +126,7 @@ export function totalizar(viajes: Viaje[]): Totales {
     t.totalMenosGastos += c.totalMenosGastos;
     t.totalOtrosGastos += c.totalOtrosGastos;
     t.netoFinal += c.netoFinal;
+    t.dieselViaje += c.dieselViaje;
     if (c.verificacion === 'FALTA BOLETOS') t.faltaBoletos++;
     if (c.idaPendiente) t.idaPendientes++;
   }

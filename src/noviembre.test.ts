@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { utils, write } from 'xlsx';
 import { calcular, leerBoletos, leerGastos, totalizar, type Viaje } from './calc';
 import type { Factura, GastoGeneral } from './db';
-import { estadoDiesel, faltanVueltas, viajesQueCubre, vueltasDe } from './diesel';
+import { cargasEfectivas, estadoDiesel, faltanVueltas, viajesQueCubre, vueltasDe } from './diesel';
 import { cuentas, informeMensual, porBus } from './informe';
 import { datosDeTexto, facturaRepetida } from './iva';
 import { libroCompleto } from './exportar';
@@ -144,5 +144,29 @@ describe('factura repetida', () => {
     expect(facturaRepetida(f('b', '77', 'NIT 99999999'), ya)).toBeUndefined();
     expect(facturaRepetida(f('b', '', 'NIT 1020703023'), ya)).toBeUndefined();
     expect(facturaRepetida(f('a', '77', 'NIT 1020703023'), ya)).toBeUndefined();
+  });
+});
+
+describe('el diésel nunca se descuenta dos veces', () => {
+  // Caso de TDS en octubre: el diésel quedó anotado dentro del viaje Y como gasto del mes.
+  const conDiesel = viaje('TDS', '2026-10-03', '10x50', 3599, 'Peaje 50; Viático 50', { otrosGastos: [{ concepto: 'Diesel', monto: 8400 }] });
+  const carga = gasto('TDS', '2026-10-03', 'Diésel', 8400);
+  it('si está en los dos lugares, se cuenta una sola vez', () => {
+    const c = cuentas([conDiesel], [carga]);
+    expect(c).toMatchObject({ gastosViaje: 100, vueltaNeta: 3499, diesel: 8400, queda: 3499 - 8400 });
+    expect(cargasEfectivas([conDiesel], [carga])).toHaveLength(1);
+  });
+  it('si solo está dentro del viaje, igual se descuenta (una vez) como gasto del mes', () => {
+    const c = cuentas([conDiesel], []);
+    expect(c).toMatchObject({ vueltaNeta: 3499, diesel: 8400, queda: 3499 - 8400 });
+    expect(cargasEfectivas([conDiesel], [])[0]).toMatchObject({ bus: 'TDS', fecha: '2026-10-03', monto: 8400, categoria: 'Diésel' });
+  });
+  it('otra carga de otro día no se confunde con la del viaje', () => {
+    expect(cuentas([conDiesel], [gasto('TDS', '2026-10-04', 'Diésel', 8400)]).diesel).toBe(16800);
+  });
+  it('por día y por mes da lo mismo', () => {
+    const m = informeMensual([conDiesel], [carga], 'TDS', 2026, 10);
+    expect(m.total.diesel).toBe(8400);
+    expect(m.dias.reduce((s, d) => s + d.c.diesel, 0)).toBe(8400);
   });
 });

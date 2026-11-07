@@ -4,7 +4,7 @@ import { db, BUSES, type GastoGeneral } from '../db';
 import { bs, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
 import { SelectorBus, PestanasGastos, SelectorMes, Tarjeta } from '../components';
-import { esDiesel } from '../diesel';
+import { cargasEfectivas, esDiesel } from '../diesel';
 import { usePermisos } from '../sync';
 import { VentanaGasto } from './Inicio';
 
@@ -37,9 +37,12 @@ export default function Gastos() {
   const filas = (bus === TODOS ? [...BUSES, GENERAL] : [bus]).map((b) => {
     const vs = datos.viajes.filter((v) => v.bus === b).sort((x, y) => x.fecha.localeCompare(y.fecha));
     const todos: Fila[] = [
-      ...vs.flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones, viaje: v.id }))),
-      ...datos.generales.filter((g) => (b === GENERAL ? !BUSES.includes(g.bus) : g.bus === b))
-        .map((g) => ({ concepto: `${g.categoria} (monto total)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones, general: g })),
+      // Gastos del viaje sin el diésel: el diésel sale una sola vez, de la lista de cargas de abajo.
+      ...vs.flatMap((v) => [...v.gastos, ...v.otrosGastos].filter((g) => !esDiesel(g.concepto)).map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones, viaje: v.id }))),
+      ...cargasEfectivas(vs, datos.generales.filter((g) => (b === GENERAL ? !BUSES.includes(g.bus) : g.bus === b)))
+        .map((g) => (datos.generales.includes(g)
+          ? { concepto: `${g.categoria} (monto total)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones, general: g }
+          : { concepto: `${g.categoria} (anotado en el viaje)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones, viaje: g.id.replace(/-dv-\d+$/, '') })),
     ].sort((x, y) => x.fecha.localeCompare(y.fecha));
     const combustible = todos.filter((g) => esDiesel(g.concepto));
     const normales = todos.filter((g) => !esDiesel(g.concepto));
