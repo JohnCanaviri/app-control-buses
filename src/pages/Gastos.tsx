@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, BUSES, type GastoGeneral } from '../db';
 import { bs, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
-import { Botones, PestanasGastos, SelectorMes, Tarjeta } from '../components';
+import { SelectorBus, PestanasGastos, SelectorMes, Tarjeta } from '../components';
 import { esDiesel } from '../diesel';
 import { usePermisos } from '../sync';
 import { VentanaGasto } from './Inicio';
@@ -32,17 +32,19 @@ export default function Gastos() {
   if (!datos) return null;
 
   const suma = (l: Fila[]) => l.reduce((s, g) => s + g.monto, 0);
-  const filas = (bus === TODOS ? BUSES : [bus]).map((b) => {
+  // «General» = gastos del monto total que no son de un bus (sueldos, impuestos…). Se ven con «Todos».
+  const GENERAL = 'General';
+  const filas = (bus === TODOS ? [...BUSES, GENERAL] : [bus]).map((b) => {
     const vs = datos.viajes.filter((v) => v.bus === b).sort((x, y) => x.fecha.localeCompare(y.fecha));
     const todos: Fila[] = [
       ...vs.flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => ({ ...g, fecha: v.fecha, obs: v.observaciones, viaje: v.id }))),
-      ...datos.generales.filter((g) => g.bus === b)
+      ...datos.generales.filter((g) => (b === GENERAL ? !BUSES.includes(g.bus) : g.bus === b))
         .map((g) => ({ concepto: `${g.categoria} (monto total)`, monto: g.monto, fecha: g.fecha, obs: g.observaciones, general: g })),
     ].sort((x, y) => x.fecha.localeCompare(y.fecha));
     const combustible = todos.filter((g) => esDiesel(g.concepto));
     const normales = todos.filter((g) => !esDiesel(g.concepto));
     return { b, normales, combustible };
-  });
+  }).filter((f) => f.b !== GENERAL || f.normales.length || f.combustible.length);
 
   return (
     <>
@@ -52,22 +54,22 @@ export default function Gastos() {
         <button type="button" className="boton no-imprimir" onClick={() => print()}>🖨 Imprimir / PDF</button>
       </div>
       <div className="filtros no-imprimir">
-        <Botones opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio, mes)} />
+        <SelectorBus opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio, mes)} />
         <SelectorMes anio={anio} mes={mes} onChange={(a, m) => cambiar(bus, a, m)} />
       </div>
       {filas.map((f) => (
         <section className="panel borde-naranja" key={f.b}>
-          <h2>{f.b}</h2>
+          <h2>{f.b === GENERAL ? 'General (sin bus)' : f.b}</h2>
           <section className="tarjetas">
-            <Tarjeta titulo="Gastos normales" valor={bs(suma(f.normales))} color="naranja" nota="Viático, peaje, mantenimiento y otros" />
             <Tarjeta titulo="Gastos combustible" valor={bs(suma(f.combustible))} color="naranja" nota="Solo diésel" />
+            <Tarjeta titulo="Gastos normales" valor={bs(suma(f.normales))} color="naranja" nota="Viático, peaje, mantenimiento y otros" />
           </section>
+          <TablaGastos titulo="Combustible (diésel)" lista={f.combustible} editar={puedeEditar ? setEditar : undefined} />
           <TablaGastos titulo="Normales" lista={f.normales} editar={puedeEditar ? setEditar : undefined} />
-          <TablaGastos titulo="Combustible" lista={f.combustible} editar={puedeEditar ? setEditar : undefined} />
         </section>
       ))}
       <p className="no-imprimir"><small>Toca un gasto para corregirlo (los de un viaje se corrigen en el viaje).</small></p>
-      {editar && <VentanaGasto base={editar} fecha={editar.fecha} cerrar={() => setEditar(undefined)} />}
+      {editar && <VentanaGasto base={editar} fecha={editar.fecha} soloDiesel={esDiesel(editar.categoria)} cerrar={() => setEditar(undefined)} />}
     </>
   );
 }

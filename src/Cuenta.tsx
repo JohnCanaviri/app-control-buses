@@ -1,4 +1,4 @@
-import { salir, sincronizar, useSync } from './sync';
+import { quitarAviso, salir, sincronizar, useSync } from './sync';
 
 const hora = (t: number | null) => (t ? new Date(t).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }) : '—');
 const NOMBRE_ROL = { admin: 'administrador', empleado: 'empleado (registra y ve, no borra)', observador: 'observador (solo lectura)', pendiente: 'esperando aprobación', rechazado: 'sin acceso' };
@@ -36,12 +36,13 @@ export function PanelCuenta() {
         {' · '}Por subir: <b>{s.pendientes}</b>{' · '}Última vez: <b>{hora(s.ultima)}</b>
       </p>
       {s.fase === 'error' && <div className="aviso error">No se pudo sincronizar: {s.mensaje}</div>}
+      {s.aviso && <div className="aviso error" onClick={quitarAviso} title="Toca para cerrar">⚠ {s.aviso}</div>}
       <div className="acciones fila">
         <button type="button" className="boton primario" disabled={s.fase === 'sincronizando'} onClick={() => sincronizar()}>🔄 Sincronizar ahora</button>
         {s.rol === 'admin' && <a href="#/usuarios" className="boton">👥 Usuarios{s.solicitudes ? ` (${s.solicitudes} por aprobar)` : ''}</a>}
         <button type="button" className="boton suave" onClick={() => { if (confirm('¿Cerrar sesión en este equipo?')) salir(); }}>Cerrar sesión</button>
       </div>
-      <p><small>Todas las cuentas aprobadas comparten los mismos viajes y facturas. Al cerrar sesión, los datos se quedan en este equipo.</small></p>
+      <p><small>Todas las cuentas aprobadas comparten los mismos viajes, gastos y facturas. Al cerrar sesión se sube lo pendiente y los datos se borran de este equipo (quedan en internet); si algo no se pudo subir, se quedan aquí hasta la próxima entrada.</small></p>
     </section>
   );
 }

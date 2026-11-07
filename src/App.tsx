@@ -14,6 +14,7 @@ import EditarFactura from './pages/EditarFactura';
 import Ajustes from './pages/Ajustes';
 import Importar from './pages/Importar';
 import Usuarios from './pages/Usuarios';
+import Informe from './pages/Informe';
 
 // «celular: false» = no va en la barra de abajo del celular (se llega por el botón de arriba).
 const MENU = [
@@ -29,6 +30,7 @@ function seccion(camino: string) {
   if (camino === '/nuevo' || camino.startsWith('/viaje/')) return '/';
   if (camino === '/mantenimientos' || camino === '/facturas' || camino.startsWith('/factura/')) return '/gastos';
   if (camino === '/importar' || camino === '/usuarios') return '/ajustes';
+  if (camino === '/informe') return '/resumen';
   return camino;
 }
 
@@ -42,7 +44,9 @@ export default function App() {
   useEffect(() => {
     if (!conSesion) return;
     let t: ReturnType<typeof setTimeout>;
-    const reiniciar = () => { marcarActividad(); clearTimeout(t); t = setTimeout(() => { salir(); }, MINUTOS_INACTIVIDAD * 60_000); };
+    // Sin internet no se cierra (no se podría volver a entrar); se vuelve a contar.
+    const cerrar = () => { if (navigator.onLine) salir({ automatico: true }); else t = setTimeout(cerrar, MINUTOS_INACTIVIDAD * 60_000); };
+    const reiniciar = () => { marcarActividad(); clearTimeout(t); t = setTimeout(cerrar, MINUTOS_INACTIVIDAD * 60_000); };
     const eventos = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
     eventos.forEach((e) => window.addEventListener(e, reiniciar, { passive: true }));
     reiniciar();
@@ -69,6 +73,7 @@ export default function App() {
   else if (camino.startsWith('/viaje/')) pagina = <EditarViaje key={camino} id={decodeURIComponent(camino.slice(7))} />;
   else if (camino === '/consulta') pagina = <Consulta />;
   else if (camino === '/resumen') pagina = <ResumenAnual />;
+  else if (camino === '/informe') pagina = <Informe />;
   else if (camino === '/gastos') pagina = <Gastos />;
   else if (camino === '/mantenimientos') pagina = <Mantenimientos />;
   else if (camino === '/facturas') pagina = <Facturas />;

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { db, eliminar as borrarDatos, guardar as guardarDatos, leerConfig, type Factura } from '../db';
-import { TASA_IVA_POR_DEFECTO } from '../iva';
+import { facturaRepetida, TASA_IVA_POR_DEFECTO } from '../iva';
 import { usePermisos } from '../sync';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir, parametros, useRuta } from '../router';
-import { Autocompletar } from '../components';
+import { Autocompletar, Flechas } from '../components';
+import { useLiveQuery } from 'dexie-react-hooks';
 
-interface Borrador { fecha: string; numero: string; proveedor: string; concepto: string; monto: string; observaciones: string; foto?: string }
+interface Borrador { fecha: string; numero: string; proveedor: string; concepto: string; monto: string; observaciones: string; foto?: string; fotoDia?: string }
+
+
 
 // «Escanear factura» abre la cámara directamente; la foto se pasa al formulario.
 let fotoPendiente: File | undefined;
@@ -38,6 +41,10 @@ export default function EditarFactura({ id }: { id?: string }) {
   const [leyendo, setLeyendo] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(false);
   const camara = useRef<HTMLInputElement>(null);
+  // Facturas del mismo mes, para las flechas ‹ ›.
+  const mesActual = (b?.fecha ?? base?.fecha ?? '').slice(0, 7);
+  const delMes = useLiveQuery(async () => (mesActual ? (await db.facturas.where('fecha').between(`${mesActual}-01`, `${mesActual}-31`, true, true).toArray())
+    .sort((x, y) => x.fecha.localeCompare(y.fecha) || x.creado - y.creado).map((x) => x.id) : []), [mesActual]) ?? [];
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +52,7 @@ export default function EditarFactura({ id }: { id?: string }) {
       if (!f) { setEstado('No se encontró esa factura.'); return; }
       setBase(f);
       setB({ ...f, monto: String(f.monto) });
+      setEstado('');
     });
   }, [id]);
 
@@ -67,7 +75,7 @@ export default function EditarFactura({ id }: { id?: string }) {
       const r = await leerFotoFactura(archivo, setEstado);
       const d = r.datos;
       setB((ant) => ant && {
-        ...ant, foto: r.foto,
+        ...ant, foto: r.foto, fotoDia: hoyISO(),
         fecha: d.fecha ?? ant.fecha,
         numero: d.numero ?? ant.numero,
         proveedor: d.nit ? (ant.proveedor && !ant.proveedor.includes(d.nit) ? `${ant.proveedor} / NIT ${d.nit}` : `NIT ${d.nit}`) : ant.proveedor,
@@ -85,19 +93,25 @@ export default function EditarFactura({ id }: { id?: string }) {
   if (!b) return <p className="vacio">{estado || 'Cargando…'}</p>;
   const set = (k: keyof Borrador, v: string) => setB({ ...b, [k]: v });
 
-  async function guardar(otra: boolean) {
+  async function guardar(otraMas: boolean) {
     if (!b) return;
     const monto = aNumero(b.monto);
     if (!b.fecha) { setEstado('Falta la fecha.'); return; }
     if (!monto) { setEstado('Falta el monto de la factura.'); return; }
     const ahora = Date.now();
-    await guardarDatos('facturas', [{
+    const nueva: Factura = {
       id: base?.id ?? uid(), fecha: b.fecha, numero: b.numero.trim(), proveedor: b.proveedor.trim(),
-      concepto: b.concepto.trim(), monto, observaciones: b.observaciones.trim(), foto: b.foto,
+      concepto: b.concepto.trim(), monto, observaciones: b.observaciones.trim(),
+      // La foto solo queda en este equipo hasta mañana: no sube a internet.
+      ...(b.foto ? { foto: b.foto, fotoDia: b.fotoDia ?? hoyISO() } : {}),
       creado: base?.creado ?? ahora, actualizado: ahora,
-    }]);
-    if (otra) {
+    };
+    const otra = facturaRepetida(nueva, await db.facturas.toArray());
+    if (otra && !confirm(`⚠ Parece que esta factura ya está registrada:\n\nN° ${otra.numero} · ${otra.proveedor} · ${otra.fecha} · Bs ${bs(otra.monto)}\n\nSi la guardas otra vez, su IVA se contará dos veces. ¿Guardar igual?`)) return;
+    await guardarDatos('facturas', [nueva]);
+    if (otraMas) {
       setB({ fecha: b.fecha, numero: '', proveedor: '', concepto: '', monto: '', observaciones: '' });
+      setBase(undefined);
       setEstado('✔ Factura guardada. Puedes escanear otra.');
       window.scrollTo(0, 0);
     } else ir(`/facturas?anio=${b.fecha.slice(0, 4)}&mes=${Number(b.fecha.slice(5, 7))}`);
@@ -113,6 +127,7 @@ export default function EditarFactura({ id }: { id?: string }) {
     <>
       <div className="encabezado">
         <h1>{base ? 'Editar factura' : 'Nueva factura'}</h1>
+        {base && <Flechas ids={delMes} actual={base.id} ruta={(x) => `/factura/${encodeURIComponent(x)}`} texto="Factura" />}
         {base && puedeBorrar && <button type="button" className="boton peligro" onClick={eliminar}>Eliminar</button>}
       </div>
       {estado && <div className={`aviso ${estado.startsWith('✔') ? '' : 'error'}`}>{leyendo && '⏳ '}{estado}</div>}
@@ -121,7 +136,7 @@ export default function EditarFactura({ id }: { id?: string }) {
         <div className="columna-form">
           <section className="panel borde-morado">
             <h2>1. Foto de la factura</h2>
-            <p><small>Se lee el código QR de la factura (funciona sin internet). Si no tiene QR, se intenta leer el texto (necesita internet).</small></p>
+            <p><small>Se lee el código QR de la factura (funciona sin internet). Si no tiene QR, o es una factura electrónica (su QR no trae fecha ni monto), se lee también el texto (necesita internet). La foto <b>no se guarda</b>: queda solo en este equipo para revisarla y se borra al día siguiente.</small></p>
             <div className="acciones fila">
               <label className="boton primario">
                 📷 Tomar foto

@@ -11,6 +11,8 @@ export interface Viaje {
   horaSalida: string;
   horaLlegada: string;
   boletosIda: Linea[];
+  sinBoletoIda?: boolean; // «Sin boletos de ida»: el monto se anota después (a fin de mes)
+  montoIdaSinBoleto?: number | null; // lo que trajeron de la ida sin boletos; null/ausente = falta anotarlo
   descuentoIda: number; // se resta solo a la ida
   sinBoletoLlegada: boolean; // «Sin boleto»: el monto calculado se iguala al registrado
   boletosLlegada: Linea[];
@@ -26,6 +28,7 @@ export type Verificacion = 'CONFORME' | 'FALTA BOLETOS' | 'DIFERENCIA' | '';
 
 export interface Calculo {
   boletosIda: number;
+  idaPendiente: boolean; // sin boletos de ida y todavía no se anotó cuánto trajeron
   montoIda: number;
   descuentoIda: number;
   idaNeto: number;
@@ -44,8 +47,10 @@ const cant = (ls: Linea[]) => ls.reduce((s, l) => s + l.cantidad, 0);
 const monto = (ls: Linea[]) => r2(ls.reduce((s, l) => s + l.cantidad * l.precio, 0));
 const suma = (gs: Gasto[]) => r2(gs.reduce((s, g) => s + g.monto, 0));
 
+export const idaPendiente = (v: Viaje) => !!v.sinBoletoIda && (v.montoIdaSinBoleto === null || v.montoIdaSinBoleto === undefined);
+
 export function calcular(v: Viaje): Calculo {
-  const montoIda = monto(v.boletosIda);
+  const montoIda = v.sinBoletoIda ? r2(v.montoIdaSinBoleto ?? 0) : monto(v.boletosIda);
   const descuentoIda = r2(v.descuentoIda || 0);
   const hayLlegada = v.sinBoletoLlegada || v.boletosLlegada.length > 0;
   const montoCalculadoLlegada = !hayLlegada ? null : v.sinBoletoLlegada ? r2(v.montoRegistrado) : monto(v.boletosLlegada);
@@ -61,7 +66,8 @@ export function calcular(v: Viaje): Calculo {
   const totalOtrosGastos = suma(v.otrosGastos);
   const totalMenosGastos = r2(v.montoRegistrado - totalGastos);
   return {
-    boletosIda: cant(v.boletosIda),
+    boletosIda: v.sinBoletoIda ? 0 : cant(v.boletosIda),
+    idaPendiente: idaPendiente(v),
     montoIda,
     descuentoIda,
     idaNeto: r2(montoIda - descuentoIda),
@@ -90,13 +96,14 @@ export interface Totales {
   totalOtrosGastos: number;
   netoFinal: number;
   faltaBoletos: number;
+  idaPendientes: number; // viajes sin boletos de ida a los que falta anotar el monto
 }
 
 export function totalizar(viajes: Viaje[]): Totales {
   const t: Totales = {
     viajes: viajes.length, boletosIda: 0, montoIda: 0, descuentoIda: 0, idaNeto: 0, boletosLlegada: 0,
     montoCalculadoLlegada: 0, montoRegistrado: 0, totalGastos: 0, totalMenosGastos: 0, totalOtrosGastos: 0,
-    netoFinal: 0, faltaBoletos: 0,
+    netoFinal: 0, faltaBoletos: 0, idaPendientes: 0,
   };
   for (const v of viajes) {
     const c = calcular(v);
@@ -112,6 +119,7 @@ export function totalizar(viajes: Viaje[]): Totales {
     t.totalOtrosGastos += c.totalOtrosGastos;
     t.netoFinal += c.netoFinal;
     if (c.verificacion === 'FALTA BOLETOS') t.faltaBoletos++;
+    if (c.idaPendiente) t.idaPendientes++;
   }
   for (const k of Object.keys(t) as (keyof Totales)[]) t[k] = r2(t[k]);
   return t;

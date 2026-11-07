@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, BUSES } from '../db';
 import { bs, fechaCorta } from '../format';
 import { ir, parametros, useRuta } from '../router';
-import { Botones, PestanasGastos } from '../components';
+import { SelectorBus, PestanasGastos } from '../components';
 
 const TODOS = 'Todos';
 const esMant = (concepto: string) => /mantenim/i.test(concepto);
@@ -40,7 +40,7 @@ export default function Mantenimientos() {
         </div>
       </div>
       <div className="filtros no-imprimir">
-        <Botones opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio)} />
+        <SelectorBus opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio)} />
       </div>
       <section className="panel">
         <h2>{filas.length} mantenimientos · {bs(total)}</h2>

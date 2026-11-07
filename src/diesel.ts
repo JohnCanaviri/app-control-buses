@@ -1,11 +1,15 @@
-// Control de diésel: cuántos viajes cubre cada carga, según su monto.
+// Control de diésel: cuántos viajes (vueltas) cubre cada carga.
 import type { Viaje } from './calc';
 import type { GastoGeneral } from './db';
 
 export const CATEGORIAS_GENERALES = ['Diésel', 'Sueldos', 'Impuestos', 'Mantenimiento', 'Otro'];
 export const DIESEL = 'Diésel';
 
-// 2000–4000 → 1 viaje · 4500–7000 → 2 · más de 7900 → 3 · otros montos: 0 (fuera de rango).
+// Desde noviembre de 2026 las vueltas de cada carga se anotan siempre a mano y el diésel ya no
+// se anota dentro de los viajes. Las cargas anteriores sin vueltas usan los rangos de monto de antes.
+export const DESDE_VUELTAS_MANUALES = '2026-11-01';
+
+// Rangos antiguos: 2000–4000 → 1 · 4500–7000 → 2 · más de 7900 → 3 · otros montos: 0.
 export function vueltasPorMonto(monto: number): number {
   if (monto > 7900) return 3;
   if (monto >= 4500 && monto <= 7000) return 2;
@@ -13,8 +17,18 @@ export function vueltasPorMonto(monto: number): number {
   return 0;
 }
 
-// Fuera de rango vale lo que indicó quien lo anotó («vueltas»); sin indicar, no cuenta.
-export const viajesQueCubre = (monto: number, vueltas?: number) => vueltasPorMonto(monto) || vueltas || 0;
+// Vueltas que cubre una carga: las anotadas a mano; si no se anotaron, los rangos (solo antes de noviembre).
+export function viajesQueCubre(monto: number, vueltas?: number, fecha?: string): number {
+  if (vueltas !== undefined && vueltas !== null) return vueltas;
+  if (fecha && fecha >= DESDE_VUELTAS_MANUALES) return 0;
+  return vueltasPorMonto(monto);
+}
+
+export const vueltasDe = (g: Pick<GastoGeneral, 'monto' | 'vueltas' | 'fecha'>) => viajesQueCubre(g.monto, g.vueltas, g.fecha);
+// Carga de noviembre en adelante a la que le falta anotar las vueltas (cuenta 0 hasta que se corrija).
+export const faltanVueltas = (g: GastoGeneral) => esDiesel(g.categoria) && (g.vueltas === undefined || g.vueltas === null) && g.fecha >= DESDE_VUELTAS_MANUALES;
+// Carga antigua cuyas vueltas salen de los rangos de monto.
+export const vueltasPorRango = (g: GastoGeneral) => esDiesel(g.categoria) && (g.vueltas === undefined || g.vueltas === null) && g.fecha < DESDE_VUELTAS_MANUALES;
 
 const mesDe = (fecha: string) => fecha.slice(0, 7);
 
@@ -23,7 +37,7 @@ export function sobranteAnterior(viajes: Viaje[], cargas: GastoGeneral[]): numbe
   const meses = [...new Set([...viajes.map((v) => mesDe(v.fecha)), ...cargas.map((c) => mesDe(c.fecha))])].sort();
   let sobra = 0;
   for (const m of meses) {
-    const vueltas = cargas.filter((c) => mesDe(c.fecha) === m).reduce((s, c) => s + viajesQueCubre(c.monto, c.vueltas), 0);
+    const vueltas = cargas.filter((c) => mesDe(c.fecha) === m).reduce((s, c) => s + viajesQueCubre(c.monto, c.vueltas, c.fecha), 0);
     sobra = Math.max(0, sobra + vueltas - viajes.filter((v) => mesDe(v.fecha) === m).length);
   }
   return sobra;
@@ -32,17 +46,38 @@ export function sobranteAnterior(viajes: Viaje[], cargas: GastoGeneral[]): numbe
 // Las cargas (más lo que sobró antes) cubren los viajes del bus en orden de fecha; lo que no alcanza queda sin marcar.
 export function controlDiesel(viajes: Viaje[], cargas: GastoGeneral[], arrastre = 0) {
   const ordenadas = [...cargas].sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const cubiertos = arrastre + ordenadas.reduce((s, c) => s + viajesQueCubre(c.monto, c.vueltas), 0);
+  const cubiertos = arrastre + ordenadas.reduce((s, c) => s + viajesQueCubre(c.monto, c.vueltas, c.fecha), 0);
   const filas = [...viajes]
     .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.creado - b.creado)
     .map((viaje, i) => ({ viaje, cubierto: i < cubiertos }));
   return { cargas: ordenadas, cubiertos, filas, pasaAlSiguiente: Math.max(0, cubiertos - filas.length) };
 }
 
+export type NivelDiesel = 'sin' | 'echar' | 'ok';
+export interface EstadoDiesel { bus: string; quedan: number; nivel: NivelDiesel; sinCubrir: number; faltanVueltas: number }
+
+// Cómo está el tanque de cada bus HOY: todas las cargas y viajes hasta hoy.
+// Las cargas se anotan cuando se echa el diésel (aunque sea después de llegar de un viaje),
+// así que lo que queda es: vueltas cargadas − viajes ya hechos. Si queda 1 o menos, hay que echar diésel
+// antes del próximo viaje (avisa aunque hoy todavía no se haya registrado ningún viaje).
+export function estadoDiesel(bus: string, viajes: Viaje[], cargas: GastoGeneral[], hoy: string): EstadoDiesel {
+  const vs = viajes.filter((v) => v.bus === bus && v.fecha <= hoy);
+  const cs = cargas.filter((c) => c.bus === bus && esDiesel(c.categoria) && c.fecha <= hoy);
+  const mes = mesDe(hoy);
+  const arrastre = sobranteAnterior(vs.filter((v) => mesDe(v.fecha) < mes), cs.filter((c) => mesDe(c.fecha) < mes));
+  const d = controlDiesel(vs.filter((v) => mesDe(v.fecha) === mes), cs.filter((c) => mesDe(c.fecha) === mes), arrastre);
+  const quedan = d.pasaAlSiguiente;
+  return {
+    bus, quedan, nivel: quedan <= 0 ? 'sin' : quedan === 1 ? 'echar' : 'ok',
+    sinCubrir: d.filas.filter((f) => !f.cubierto).length,
+    faltanVueltas: cs.filter(faltanVueltas).length,
+  };
+}
+
 export const esDiesel = (concepto: string) => /di[eé]sel/i.test(concepto);
 
 // Saca del viaje las cargas de diésel (de «Gastos» u «Otros gastos») y las convierte en gastos
-// del monto total de ese bus y día. null = el viaje no tenía diésel.
+// del monto total de ese bus y día. null = el viaje no tenía diésel. Solo se usa con viajes antiguos.
 export function separarDiesel(v: Viaje): { viaje: Viaje; cargas: GastoGeneral[] } | null {
   const todos = [...v.gastos, ...v.otrosGastos].filter((g) => esDiesel(g.concepto) && g.monto);
   if (!todos.length) return null;

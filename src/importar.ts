@@ -2,7 +2,7 @@
 // Facturas y, para comparar, los totales que calculó el propio Excel en la hoja Resumen.
 import { read, utils, type WorkBook } from 'xlsx';
 import { leerBoletos, leerGastos, totalizar, type Viaje } from './calc';
-import type { Factura } from './db';
+import type { Factura, GastoGeneral } from './db';
 
 export interface Problema { hoja: string; fila: number; mensaje: string }
 
@@ -17,6 +17,7 @@ export interface Comparacion extends TotalExcel {
 export interface Importacion {
   viajes: Viaje[];
   facturas: Factura[];
+  gastos: GastoGeneral[];
   problemas: Problema[];
   totalesExcel: TotalExcel[];
   comparacion: Comparacion[];
@@ -66,12 +67,6 @@ export function horario(v: unknown): { salida: string; llegada: string; resto: s
   return { salida: horas[0] ?? '', llegada: horas[1] ?? '', resto: horas.length ? '' : s };
 }
 
-// Identificador estable: si importas el mismo Excel dos veces no se duplican los viajes.
-function huella(partes: string[]) {
-  let h = 5381;
-  for (const c of partes.join('|')) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0;
-  return h.toString(36);
-}
 
 function columnas(cab: Fila, buscar: Record<string, (h: string) => boolean>) {
   const res: Record<string, number> = {};
@@ -98,6 +93,8 @@ function leerRegistro(wb: WorkBook, problemas: Problema[]): Viaje[] {
     gastos: (h) => h.startsWith('gastos'),
     otros: (h) => h.startsWith('otros gastos'),
     obs: (h) => h.startsWith('observaciones'),
+    idaSinBoleto: (h) => h.startsWith('monto ida sin boleto'),
+    id: (h) => h === 'id',
   });
   for (const k of ['bus', 'fecha', 'ida', 'llegada', 'registrado', 'gastos']) {
     if (c[k] === undefined) { problemas.push({ hoja: 'Registro', fila: 1, mensaje: `No encontré la columna «${k}».` }); return []; }
@@ -119,7 +116,9 @@ function leerRegistro(wb: WorkBook, problemas: Problema[]): Viaje[] {
 
     // Igual que el Excel: un detalle sin «x» no suma boletos (en la llegada equivale a «Sin boleto»).
     const idaTxt = texto(celda(f, 'ida'));
+    const sinBoletoIda = /^sin\s*boletos?$/i.test(idaTxt);
     const ida = /x/i.test(idaTxt) ? leerBoletos(idaTxt) : { lineas: [], error: false };
+    const montoSinBoleto = vacio(celda(f, 'idaSinBoleto')) ? null : numero(celda(f, 'idaSinBoleto'));
     if (ida.error) aviso(`Boletos de ida con formato raro: «${idaTxt}».`);
     const llegTxt = texto(celda(f, 'llegada'));
     const sinBoleto = llegTxt !== '' && !/x/i.test(llegTxt);
@@ -139,13 +138,18 @@ function leerRegistro(wb: WorkBook, problemas: Problema[]): Viaje[] {
     const obs = [texto(celda(f, 'obs')), h.resto ? `Horario: ${h.resto}` : ''].filter(Boolean).join(' · ');
     const destino = texto(celda(f, 'destino'));
 
-    const base = huella([bus, fecha, destino, texto(celda(f, 'hora')), idaTxt, llegTxt, String(registrado), gTxt, oTxt]);
-    const n = (vistos.get(base) ?? 0) + 1;
-    vistos.set(base, n);
+    // Identificador estable: el Excel exportado por la app trae la columna ID; el Excel original no, así que se usa
+    // «bus + fecha + n° de viaje de ese día». Así, si corriges una celda y vuelves a importar, el viaje se actualiza
+    // en lugar de duplicarse.
+    const clave = `${bus}-${fecha}`;
+    const n = (vistos.get(clave) ?? 0) + 1;
+    vistos.set(clave, n);
+    const id = texto(celda(f, 'id')) || `xls-${clave}-${n}`;
 
     viajes.push({
-      id: `xls-${base}-${n}`, bus, fecha, destino, horaSalida: h.salida, horaLlegada: h.llegada,
+      id, bus, fecha, destino, horaSalida: h.salida, horaLlegada: h.llegada,
       boletosIda: ida.lineas, descuentoIda: descuento ?? 0,
+      ...(sinBoletoIda ? { sinBoletoIda: true, montoIdaSinBoleto: montoSinBoleto } : {}),
       sinBoletoLlegada: sinBoleto, boletosLlegada: lleg.lineas, montoRegistrado: registrado ?? 0,
       gastos: gastos.gastos, otrosGastos: otros.gastos, observaciones: obs,
       creado: ahora + i, actualizado: ahora,
@@ -167,8 +171,10 @@ function leerFacturas(wb: WorkBook, problemas: Problema[]): Factura[] {
     concepto: (h) => h.startsWith('concepto'),
     monto: (h) => h.startsWith('monto factura'),
     obs: (h) => h.startsWith('observaciones'),
+    id: (h) => h === 'id',
   });
   const facturas: Factura[] = [];
+  const porDia = new Map<string, number>();
   const ahora = Date.now();
   filas.slice(ic + 1).forEach((f, i) => {
     const fila = ic + i + 2;
@@ -181,13 +187,49 @@ function leerFacturas(wb: WorkBook, problemas: Problema[]): Factura[] {
       return;
     }
     const numeroF = texto(val('numero'));
+    // Dos facturas iguales (mismo día, proveedor y monto) son dos facturas: se numeran por día, no se juntan.
+    const n = (porDia.get(fecha) ?? 0) + 1;
+    porDia.set(fecha, n);
     facturas.push({
-      id: `xls-f-${huella([fecha, numeroF, texto(val('proveedor')), String(monto)])}`,
+      id: texto(val('id')) || `xls-f-${fecha}-${n}`,
       fecha, numero: numeroF, proveedor: texto(val('proveedor')), concepto: texto(val('concepto')),
       monto, observaciones: texto(val('obs')), creado: ahora + i, actualizado: ahora,
     });
   });
   return facturas;
+}
+
+// Hoja «Gastos» del Excel que exporta la app (diésel, sueldos, impuestos… del monto total).
+function leerGastosGenerales(wb: WorkBook, problemas: Problema[]): GastoGeneral[] {
+  const ws = wb.Sheets['Gastos'];
+  if (!ws) return [];
+  const filas = utils.sheet_to_json<Fila>(ws, { header: 1, raw: true, defval: '' });
+  const c = columnas(filas[0] ?? [], {
+    fecha: (h) => h === 'fecha', bus: (h) => h === 'bus', categoria: (h) => h.startsWith('categoria'),
+    vueltas: (h) => h.startsWith('vueltas'), monto: (h) => h === 'monto', obs: (h) => h.startsWith('observaciones'), id: (h) => h === 'id',
+  });
+  if (c.fecha === undefined || c.monto === undefined || c.categoria === undefined) return [];
+  const gastos: GastoGeneral[] = [];
+  const vistos = new Map<string, number>();
+  const ahora = Date.now();
+  filas.slice(1).forEach((f, i) => {
+    const val = (k: string) => (c[k] === undefined ? '' : f[c[k]]);
+    if (vacio(val('fecha')) && vacio(val('monto'))) return;
+    const fecha = fechaExcel(val('fecha'));
+    const monto = numero(val('monto'));
+    if (!fecha || !monto) { problemas.push({ hoja: 'Gastos', fila: i + 2, mensaje: 'Gasto con fecha o monto no válido; no se importó.' }); return; }
+    const busTxt = texto(val('bus')).toUpperCase();
+    const bus = busTxt === 'GENERAL' || busTxt === '—' ? '' : busTxt;
+    const clave = `${fecha}-${bus || 'general'}`;
+    const n = (vistos.get(clave) ?? 0) + 1;
+    vistos.set(clave, n);
+    const vueltas = vacio(val('vueltas')) ? undefined : numero(val('vueltas')) ?? undefined;
+    gastos.push({
+      id: texto(val('id')) || `xls-g-${clave}-${n}`, fecha, bus, categoria: texto(val('categoria')) || 'Otro', monto,
+      ...(vueltas !== undefined ? { vueltas } : {}), observaciones: texto(val('obs')), creado: ahora + i, actualizado: ahora,
+    });
+  });
+  return gastos;
 }
 
 function leerResumen(wb: WorkBook): TotalExcel[] {
@@ -240,6 +282,16 @@ export function importarLibro(datos: ArrayBuffer | Uint8Array): Importacion {
   const problemas: Problema[] = [];
   const viajes = leerRegistro(wb, problemas);
   const facturas = leerFacturas(wb, problemas);
+  const gastos = leerGastosGenerales(wb, problemas);
   const totalesExcel = leerResumen(wb);
-  return { viajes, facturas, problemas, totalesExcel, comparacion: comparar(viajes, totalesExcel) };
+  return { viajes, facturas, gastos, problemas, totalesExcel, comparacion: comparar(viajes, totalesExcel) };
+}
+
+// Viajes, facturas y gastos importados antes de un Excel (id «xls-…») de los mismos días que este archivo,
+// que ya no están en él: se reemplazan para no quedar duplicados (p. ej. al corregir una celda y volver a importar).
+export function reemplazados<T extends { id: string; fecha: string; bus?: string }>(existentes: T[], nuevos: T[], conBus: boolean): string[] {
+  const clave = (x: T) => (conBus ? `${x.bus}|${x.fecha}` : x.fecha);
+  const dias = new Set(nuevos.map(clave));
+  const ids = new Set(nuevos.map((x) => x.id));
+  return existentes.filter((x) => x.id.startsWith('xls-') && dias.has(clave(x)) && !ids.has(x.id)).map((x) => x.id);
 }

@@ -1,4 +1,5 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { ir } from './router';
 import type { Verificacion } from './calc';
 import { MESES } from './format';
 import { filtrar, useSugerencias, type Fuente } from './sugerencias';
@@ -100,3 +101,83 @@ export function SelectorMes({ anio, mes, onChange }: { anio: number; mes: number
   );
 }
 
+
+// Flechas ‹ › para ir al registro anterior o siguiente (viajes, facturas…), también con las teclas ← →.
+export function Flechas({ ids, actual, ruta, texto = 'registro' }: { ids: string[]; actual?: string; ruta: (id: string) => string; texto?: string }) {
+  const i = actual ? ids.indexOf(actual) : -1;
+  const ant = i > 0 ? ids[i - 1] : undefined;
+  const sig = i >= 0 && i < ids.length - 1 ? ids[i + 1] : undefined;
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('input, textarea, select, [contenteditable]')) return;
+      if (e.key === 'ArrowLeft' && ant) ir(ruta(ant));
+      if (e.key === 'ArrowRight' && sig) ir(ruta(sig));
+    };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [ant, sig, ruta]);
+  if (i < 0 || ids.length < 2) return null;
+  return (
+    <div className="flechas no-imprimir">
+      <button type="button" disabled={!ant} onClick={() => ant && ir(ruta(ant))} aria-label={`${texto} anterior`}>‹</button>
+      <span>{texto} {i + 1} de {ids.length}</span>
+      <button type="button" disabled={!sig} onClick={() => sig && ir(ruta(sig))} aria-label={`${texto} siguiente`}>›</button>
+    </div>
+  );
+}
+
+// Flechas ‹ › para moverse por días (informe diario).
+export function SelectorDia({ fecha, onChange }: { fecha: string; onChange: (f: string) => void }) {
+  const mover = (d: number) => {
+    const x = new Date(`${fecha}T12:00:00`);
+    x.setDate(x.getDate() + d);
+    onChange(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`);
+  };
+  return (
+    <div className="selector-mes">
+      <button type="button" onClick={() => mover(-1)} aria-label="Día anterior">‹</button>
+      <input type="date" value={fecha} onChange={(e) => e.target.value && onChange(e.target.value)} className="fecha-dia" />
+      <button type="button" onClick={() => mover(1)} aria-label="Día siguiente">›</button>
+    </div>
+  );
+}
+
+// Flechas ‹ › para cambiar de bus.
+export function SelectorBus({ opciones, valor, onChange }: { opciones: string[]; valor: string; onChange: (b: string) => void }) {
+  const i = Math.max(0, opciones.indexOf(valor));
+  const mover = (d: number) => onChange(opciones[(i + d + opciones.length) % opciones.length]);
+  return (
+    <div className="selector-bus">
+      <button type="button" onClick={() => mover(-1)} aria-label="Bus anterior">‹</button>
+      <Botones opciones={opciones} valor={valor} onChange={onChange} />
+      <button type="button" onClick={() => mover(1)} aria-label="Bus siguiente">›</button>
+    </div>
+  );
+}
+
+// Resúmenes: el año mes por mes y el informe del mes para imprimir.
+export function PestanasResumen({ vista, bus, anio, mes }: { vista: 'anio' | 'mes'; bus: string; anio: number; mes: number }) {
+  const v: [string, string, string][] = [
+    ['anio', '📊 Año', `#/resumen?bus=${bus}&anio=${anio}`],
+    ['mes', '🖨 Informe del mes (imprimir)', `#/informe?bus=${bus}&anio=${anio}&mes=${mes}`],
+  ];
+  return (
+    <div className="pestanas no-imprimir">
+      {v.map(([k, t, h]) => <a key={k} href={h} className={vista === k ? 'sel' : ''}>{t}</a>)}
+    </div>
+  );
+}
+
+// Cantidad de viajes del mes de cada bus y el total (solo aquí, al principio).
+export function ViajesDelMes({ viajes, buses }: { viajes: { bus: string }[]; buses: string[] }) {
+  const n = (b: string) => viajes.filter((v) => v.bus === b).length;
+  const total = buses.reduce((s, b) => s + n(b), 0);
+  return (
+    <div className="viajes-mes">
+      <span className="viajes-mes-titulo">Viajes del mes</span>
+      {buses.map((b) => <span key={b} className="viajes-mes-bus"><b className="bus-chip">{b}</b> {n(b)}</span>)}
+      {buses.length > 1 && <span className="viajes-mes-bus total">Total <b>{total}</b></span>}
+    </div>
+  );
+}

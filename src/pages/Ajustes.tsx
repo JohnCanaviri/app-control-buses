@@ -21,24 +21,33 @@ export default function Ajustes() {
     const a = document.createElement('a');
     a.href = url; a.download = `respaldo-buses-${hoyISO()}.json`; a.click();
     URL.revokeObjectURL(url);
-    setMensaje(`✔ Respaldo descargado con ${r.viajes.length} viajes y ${r.facturas?.length ?? 0} facturas.`);
+    setMensaje(`✔ Respaldo descargado con ${r.viajes.length} viajes, ${r.facturas?.length ?? 0} facturas y ${r.gastos?.length ?? 0} gastos del monto total.`);
   }
 
   async function exportar() {
-    const [{ exportarTodo }, viajes, facturas, tasa] = await Promise.all([
-      import('../exportar'), db.viajes.toArray(), db.facturas.toArray(), leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO),
+    const [{ exportarTodo }, viajes, facturas, gastos, tasa] = await Promise.all([
+      import('../exportar'), db.viajes.toArray(), db.facturas.toArray(), db.gastos.toArray(), leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO),
     ]);
-    exportarTodo(viajes, facturas, tasa);
-    setMensaje(`✔ Excel descargado con ${viajes.length} viajes y ${facturas.length} facturas.`);
+    exportarTodo(viajes, facturas, tasa, gastos);
+    setMensaje(`✔ Excel descargado con ${viajes.length} viajes, ${facturas.length} facturas y ${gastos.length} gastos del monto total.`);
   }
 
-  async function restaurar(archivo: File | undefined) {
+  // Agregar es lo normal y no borra nada. Reemplazar borra para TODOS lo que no está en el respaldo:
+  // hay que escribir REEMPLAZAR para confirmarlo.
+  async function restaurar(archivo: File | undefined, modo: 'agregar' | 'reemplazar') {
     if (!archivo) return;
     try {
       const r = JSON.parse(await archivo.text()) as Respaldo;
-      const reemplazar = confirm(`El respaldo tiene ${r.viajes?.length ?? 0} viajes.\n\nAceptar = REEMPLAZAR todo lo que hay ahora.\nCancelar = AGREGAR sin borrar lo actual.`);
-      await restaurarRespaldo(r, reemplazar);
-      setMensaje(`✔ Respaldo restaurado (${r.viajes.length} viajes).`);
+      const cuantos = `${r.viajes?.length ?? 0} viajes, ${r.facturas?.length ?? 0} facturas y ${r.gastos?.length ?? 0} gastos`;
+      const fecha = r.fecha ? new Date(r.fecha).toLocaleString('es-BO') : 'fecha desconocida';
+      if (modo === 'agregar') {
+        if (!confirm(`Respaldo del ${fecha} con ${cuantos}.\n\nSe AGREGAN a lo que ya hay (no se borra nada). Lo que tenga el mismo registro se reemplaza por lo del respaldo.\n\n¿Continuar?`)) return;
+      } else {
+        const ok = prompt(`⚠ PELIGRO — Respaldo del ${fecha} con ${cuantos}.\n\nSe BORRARÁ todo lo que no esté en el respaldo, en internet y en los equipos de TODAS las cuentas (también lo registrado después de esa fecha).\n\nPara confirmar escribe REEMPLAZAR:`);
+        if (ok?.trim().toUpperCase() !== 'REEMPLAZAR') { setMensaje('No se restauró nada.'); return; }
+      }
+      const n = await restaurarRespaldo(r, modo);
+      setMensaje(`✔ Respaldo ${modo === 'agregar' ? 'agregado' : 'restaurado'}: ${n.viajes} viajes, ${n.facturas} facturas y ${n.gastos} gastos.`);
     } catch (e) {
       setMensaje(`✖ No se pudo restaurar: ${(e as Error).message}`);
     }
@@ -72,7 +81,7 @@ export default function Ajustes() {
 
       {puedeImportar && <section className="panel">
         <h2>Diésel de los viajes</h2>
-        <p>Pasa todo el diésel anotado en los viajes a «gastos del monto total» de su mes y bus, y lo quita de los viajes. Repetirlo no duplica nada.</p>
+        <p>Pasa el diésel que quedó anotado en viajes antiguos a «gastos del monto total» de su mes y bus, y lo quita de los viajes. Repetirlo no duplica nada. Desde noviembre el diésel ya no se puede anotar en los viajes.</p>
         <button type="button" className="boton primario" onClick={async () => {
           if (!confirm('¿Pasar el diésel de todos los viajes a gastos del monto total? La «Llegada neto» de esos viajes subirá.')) return;
           const n = await migrarDiesel();
@@ -86,10 +95,15 @@ export default function Ajustes() {
         <div className="acciones fila">
           <button type="button" className="boton primario" onClick={descargar}>⬇ Descargar respaldo</button>
           {puedeImportar && <label className="boton">
-            ⬆ Restaurar respaldo
-            <input type="file" accept="application/json,.json" hidden onChange={(e) => { restaurar(e.target.files?.[0]); e.target.value = ''; }} />
+            ⬆ Agregar desde un respaldo
+            <input type="file" accept="application/json,.json" hidden onChange={(e) => { restaurar(e.target.files?.[0], 'agregar'); e.target.value = ''; }} />
+          </label>}
+          {puedeImportar && <label className="boton peligro">
+            ⚠ Reemplazar todo con un respaldo
+            <input type="file" accept="application/json,.json" hidden onChange={(e) => { restaurar(e.target.files?.[0], 'reemplazar'); e.target.value = ''; }} />
           </label>}
         </div>
+        <p><small>El respaldo trae viajes, facturas (sin fotos) y gastos del monto total. «Agregar» no borra nada. «Reemplazar» borra para todos lo que no esté en el respaldo: úsalo solo si sabes lo que haces.</small></p>
       </section>
 
       <section className="panel">

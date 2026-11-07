@@ -1,24 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db, BUSES, eliminar as borrarDatos, guardar as guardarDatos } from '../db';
 import { calcular, type Viaje } from '../calc';
 import { aNumero, bs, hoyISO, uid } from '../format';
 import { ir } from '../router';
 import { usePermisos } from '../sync';
-import { Autocompletar, Botones, Insignia } from '../components';
-import { separarDiesel } from '../diesel';
+import { Autocompletar, Botones, Flechas, Insignia } from '../components';
+import { DESDE_VUELTAS_MANUALES, esDiesel, separarDiesel } from '../diesel';
 
 // En el formulario los números se guardan como texto para poder escribir «50,5».
 interface LineaD { cantidad: string; precio: string }
 interface GastoD { concepto: string; monto: string }
 interface Borrador {
   bus: string; fecha: string; destino: string; horaSalida: string; horaLlegada: string;
-  boletosIda: LineaD[]; descuentoIda: string;
+  boletosIda: LineaD[]; descuentoIda: string; sinBoletoIda: boolean; montoIdaSinBoleto: string;
   sinBoletoLlegada: boolean; boletosLlegada: LineaD[]; montoRegistrado: string;
   gastos: GastoD[]; otrosGastos: GastoD[]; observaciones: string;
 }
 
 const CONCEPTOS_GASTOS = ['Viático', 'Peaje', 'Mantenimiento'];
-const CONCEPTOS_COMBUSTIBLE = ['Diésel'];
+// Desde noviembre el diésel se anota aparte (⛽ en Inicio), nunca dentro del viaje.
+const dieselAparte = (fecha: string) => !fecha || fecha >= DESDE_VUELTAS_MANUALES;
 const BUS_GUARDADO = 'ultimo-bus';
 
 function leerBus() {
@@ -28,7 +30,7 @@ function leerBus() {
 function nuevoBorrador(): Borrador {
   return {
     bus: leerBus(), fecha: hoyISO(), destino: '', horaSalida: '', horaLlegada: '',
-    boletosIda: [], descuentoIda: '', sinBoletoLlegada: false, boletosLlegada: [], montoRegistrado: '',
+    boletosIda: [], descuentoIda: '', sinBoletoIda: false, montoIdaSinBoleto: '', sinBoletoLlegada: false, boletosLlegada: [], montoRegistrado: '',
     gastos: [], otrosGastos: [], observaciones: '',
   };
 }
@@ -40,6 +42,8 @@ function aBorrador(v: Viaje): Borrador {
     ...v,
     boletosIda: v.boletosIda.map((l) => ({ cantidad: txt(l.cantidad), precio: txt(l.precio) })),
     descuentoIda: txt(v.descuentoIda),
+    sinBoletoIda: !!v.sinBoletoIda,
+    montoIdaSinBoleto: v.montoIdaSinBoleto === null || v.montoIdaSinBoleto === undefined ? '' : String(v.montoIdaSinBoleto),
     boletosLlegada: v.boletosLlegada.map((l) => ({ cantidad: txt(l.cantidad), precio: txt(l.precio) })),
     montoRegistrado: txt(v.montoRegistrado),
     gastos: v.gastos.map((g) => ({ concepto: g.concepto, monto: txt(g.monto) })),
@@ -58,7 +62,8 @@ function aViaje(b: Borrador, base?: Viaje): Viaje {
   return {
     id: base?.id ?? uid(),
     bus: b.bus, fecha: b.fecha, destino: b.destino.trim(), horaSalida: b.horaSalida, horaLlegada: b.horaLlegada,
-    boletosIda: lineas(b.boletosIda), descuentoIda: aNumero(b.descuentoIda),
+    boletosIda: b.sinBoletoIda ? [] : lineas(b.boletosIda), descuentoIda: aNumero(b.descuentoIda),
+    ...(b.sinBoletoIda ? { sinBoletoIda: true, montoIdaSinBoleto: b.montoIdaSinBoleto.trim() === '' ? null : aNumero(b.montoIdaSinBoleto) } : {}),
     sinBoletoLlegada: b.sinBoletoLlegada, boletosLlegada: b.sinBoletoLlegada ? [] : lineas(b.boletosLlegada),
     montoRegistrado: aNumero(b.montoRegistrado),
     gastos: gastos(b.gastos), otrosGastos: gastos(b.otrosGastos), observaciones: b.observaciones.trim(),
@@ -80,20 +85,39 @@ export default function EditarViaje({ id }: { id?: string }) {
   }, [id]);
 
   const viaje = useMemo(() => (b ? aViaje(b, base) : null), [b, base]);
-  const c = useMemo(() => (viaje ? calcular(viaje) : null), [viaje]);
+  // Viajes antiguos con diésel: al guardar, el diésel pasa a «gastos del monto total». El resultado que se ve
+  // es el que se guarda (sin el diésel).
+  const separado = useMemo(() => (viaje ? separarDiesel(viaje) : null), [viaje]);
+  const c = useMemo(() => (viaje ? calcular(separado?.viaje ?? viaje) : null), [viaje, separado]);
+
+  // Viajes del mismo bus y mes, para las flechas ‹ ›.
+  const mesBus = base ? `${base.bus}|${base.fecha.slice(0, 7)}` : '';
+  const hermanos = useLiveQuery(async () => {
+    if (!base) return [];
+    const m = base.fecha.slice(0, 7);
+    return (await db.viajes.where('[bus+fecha]').between([base.bus, `${m}-01`], [base.bus, `${m}-31`], true, true).toArray())
+      .sort((x, y) => x.fecha.localeCompare(y.fecha) || x.creado - y.creado).map((x) => x.id);
+  }, [mesBus]) ?? [];
 
   if (!b || !viaje || !c) return <p className="vacio">{aviso || 'Cargando…'}</p>;
+  const aparte = dieselAparte(b.fecha);
+  const conDiesel = [...b.gastos, ...b.otrosGastos].some((g) => esDiesel(g.concepto));
 
   const set = <K extends keyof Borrador>(k: K, v: Borrador[K]) => setB({ ...b, [k]: v });
 
   async function guardar(otro: boolean) {
     if (!b || !viaje) return;
     if (!b.fecha) { setAviso('Falta la fecha.'); return; }
-    if (!viaje.boletosIda.length && !viaje.montoRegistrado && !viaje.gastos.length) {
-      setAviso('Anota al menos los boletos de ida o el monto que trajeron.'); return;
+    if (!viaje.boletosIda.length && !b.sinBoletoIda && !viaje.montoRegistrado && !viaje.gastos.length) {
+      setAviso('Anota los boletos de ida (o marca «Sin boletos de ida») o el monto que trajeron.'); return;
     }
-    // El diésel no se guarda en el viaje: va a «gastos del monto total» del mes.
-    const d = separarDiesel(viaje);
+    if (aparte && conDiesel) {
+      setAviso('✖ Desde noviembre el diésel se anota con «⛽ Echar diésel» en Inicio (ahí se indican las vueltas). Quita el diésel de los gastos del viaje.');
+      window.scrollTo(0, 0);
+      return;
+    }
+    // Viajes antiguos: el diésel que tenían pasa a «gastos del monto total» del mes.
+    const d = separado;
     if (d) await guardarDatos('gastos', d.cargas.map((c) => ({ ...c, id: uid() })));
     await guardarDatos('viajes', [d ? d.viaje : viaje]);
     try { localStorage.setItem(BUS_GUARDADO, b.bus); } catch { /* sin almacenamiento */ }
@@ -112,6 +136,7 @@ export default function EditarViaje({ id }: { id?: string }) {
     <>
       <div className="encabezado">
         <h1>{base ? 'Editar viaje' : 'Nuevo viaje'}</h1>
+        {base && <Flechas ids={hermanos} actual={base.id} ruta={(x) => `/viaje/${encodeURIComponent(x)}`} texto={`Viaje de ${base.bus}`} />}
         {base && puedeBorrar && <button type="button" className="boton peligro" onClick={eliminar}>Eliminar</button>}
       </div>
       {aviso && <div className="aviso" onClick={() => setAviso('')}>{aviso}</div>}
@@ -137,7 +162,19 @@ export default function EditarViaje({ id }: { id?: string }) {
 
           <section className="panel borde-azul">
             <h2>2. Ida</h2>
-            <EditorBoletos lineas={b.boletosIda} onChange={(l) => set('boletosIda', l)} precios={[]} />
+            <label className="check">
+              <input type="checkbox" checked={b.sinBoletoIda} onChange={(e) => set('sinBoletoIda', e.target.checked)} />
+              Sin boletos de ida (no trajeron boletos)
+            </label>
+            {b.sinBoletoIda ? (
+              <div className="fila-campos">
+                <div>
+                  <label>¿Cuánto trajeron de la ida? (Bs)</label>
+                  <input inputMode="decimal" value={b.montoIdaSinBoleto} placeholder="Déjalo vacío si aún no se sabe" onChange={(e) => set('montoIdaSinBoleto', e.target.value)} />
+                  <small>Si lo dejas vacío, a fin de mes la app te preguntará cuánto trajeron ese día.</small>
+                </div>
+              </div>
+            ) : <EditorBoletos lineas={b.boletosIda} onChange={(l) => set('boletosIda', l)} precios={[]} />}
             <div className="fila-campos">
               <div>
                 <label>Descuento de ida (Bs)</label>
@@ -146,7 +183,7 @@ export default function EditarViaje({ id }: { id?: string }) {
               </div>
             </div>
             <div className="subtotales">
-              <span>{c.boletosIda} boletos</span>
+              <span>{b.sinBoletoIda ? (c.idaPendiente ? <b className="naranja-txt">Sin boletos · falta el monto</b> : 'Sin boletos') : `${c.boletosIda} boletos`}</span>
               <span>Ida: <b>{bs(c.montoIda)}</b></span>
               <span>Ida neto: <b className="azul-txt">{bs(c.idaNeto)}</b></span>
             </div>
@@ -181,8 +218,14 @@ export default function EditarViaje({ id }: { id?: string }) {
           <section className="panel borde-naranja">
             <h2>4. Gastos</h2>
             <EditorGastos gastos={b.gastos} onChange={(g) => set('gastos', g)} conceptos={CONCEPTOS_GASTOS} />
-            <h3>Combustible <small>(solo anotar si se echó diésel; pasa solo a gastos del monto total)</small></h3>
-            <EditorGastos gastos={b.otrosGastos} onChange={(g) => set('otrosGastos', g)} conceptos={CONCEPTOS_COMBUSTIBLE} />
+            {aparte
+              ? <p><small>⛽ El diésel <b>no</b> se anota aquí: usa «Echar diésel» en Inicio, donde se indican las vueltas.</small></p>
+              : separado && <p className="naranja-txt"><small>Este viaje antiguo tiene diésel: al guardar pasa a «gastos del monto total» de {b.bus} (el resultado de la derecha ya lo muestra sin el diésel).</small></p>}
+            {aparte && conDiesel && <div className="aviso error">Quita el diésel de los gastos del viaje: se anota con «⛽ Echar diésel» en Inicio.</div>}
+            {b.otrosGastos.length > 0 && <>
+              <h3>Otros gastos <small>(de registros antiguos)</small></h3>
+              <EditorGastos gastos={b.otrosGastos} onChange={(g) => set('otrosGastos', g)} conceptos={[]} />
+            </>}
           </section>
 
           <section className="panel">
@@ -195,13 +238,13 @@ export default function EditarViaje({ id }: { id?: string }) {
           <div className="panel">
             <h2>Resultado</h2>
             <dl className="resultado">
-              <dt>Monto ida</dt><dd>{bs(c.montoIda)}</dd>
+              <dt>Monto ida{b.sinBoletoIda ? ' (sin boletos)' : ''}</dt><dd>{c.idaPendiente ? <span className="naranja-txt">falta</span> : bs(c.montoIda)}</dd>
               <dt>Descuento</dt><dd>− {bs(c.descuentoIda)}</dd>
               <dt className="fuerte">Ida neto</dt><dd className="fuerte azul-txt">{bs(c.idaNeto)}</dd>
               <dt className="sep">Monto que trajeron</dt><dd className="sep">{bs(c.montoRegistrado)}</dd>
               <dt>Gastos</dt><dd>− {bs(c.totalGastos)}</dd>
               <dt>Total menos gastos</dt><dd>{bs(c.totalMenosGastos)}</dd>
-              <dt>Combustible / otros</dt><dd>− {bs(c.totalOtrosGastos)}</dd>
+              {c.totalOtrosGastos !== 0 && <><dt>Otros gastos</dt><dd>− {bs(c.totalOtrosGastos)}</dd></>}
               <dt className="fuerte">Llegada neto</dt><dd className={`fuerte grande ${c.netoFinal < 0 ? 'negativo' : ''}`}>{bs(c.netoFinal)}</dd>
             </dl>
             <div className="acciones">

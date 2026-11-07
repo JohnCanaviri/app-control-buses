@@ -36,7 +36,7 @@ export default function Usuarios() {
   return (
     <>
       <div className="encabezado"><h1>Usuarios</h1></div>
-      <p>Las cuentas <b>solo las creas tú</b> en Supabase (Authentication → Add user); aparecen aquí para que les des un rol. Los empleados registran, editan y ven todo; <b>no pueden borrar, importar ni aprobar</b>. Los observadores <b>solo ven</b> métricas, consultas y tablas.</p>
+      <p>Cada persona pide su cuenta en la pantalla de entrada de la app («Pedir una cuenta») y queda <b>esperando</b>: <b>nadie entra ni ve nada hasta que tú la apruebes aquí</b>. Los empleados registran, editan y ven todo; <b>no pueden borrar, importar ni aprobar</b>. Los observadores <b>solo ven</b> métricas, consultas y tablas.</p>
       {msg && <div className={`aviso ${msg.startsWith('✔') ? '' : 'error'}`} onClick={() => setMsg('')}>{msg}</div>}
       {!perfiles && <p className="vacio">Cargando…</p>}
       {perfiles && grupos.map((g) => {

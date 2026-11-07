@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, guardarConfig, leerConfig } from '../db';
+import { db, leerConfig } from '../db';
 import { calcularIVA, TASA_IVA_POR_DEFECTO } from '../iva';
 import { bs, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, parametros, useRuta } from '../router';
 import { PestanasGastos, SelectorMes, Tarjeta } from '../components';
-import { usePermisos } from '../sync';
+import { guardarAjuste, usePermisos } from '../sync';
 import { BotonEscanear } from './EditarFactura';
 
 export default function Facturas() {
@@ -14,16 +14,22 @@ export default function Facturas() {
   const anio = Number(q.get('anio')) || hoy.getFullYear();
   const mes = Number(q.get('mes')) || hoy.getMonth() + 1;
   const [desde, hasta] = rangoMes(anio, mes);
-  const { puedeEditar } = usePermisos();
+  const { puedeEditar, esAdmin } = usePermisos();
   const totalFacturas = useLiveQuery(() => db.facturas.count(), []);
 
   const [tasa, setTasa] = useState(TASA_IVA_POR_DEFECTO);
   const [tasaTxt, setTasaTxt] = useState('13');
-  useEffect(() => { leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO).then((t) => { setTasa(t); setTasaTxt(String(Math.round(t * 1000) / 10)); }); }, []);
+  // La tasa es la misma para toda la empresa (la cambia solo el administrador y llega a todos los equipos).
+  useEffect(() => {
+    const cargar = () => leerConfig('tasaIVA', TASA_IVA_POR_DEFECTO).then((t) => { setTasa(t); setTasaTxt(String(Math.round(t * 1000) / 10)); });
+    cargar();
+    window.addEventListener('ajustes-cambiados', cargar);
+    return () => window.removeEventListener('ajustes-cambiados', cargar);
+  }, []);
   const cambiarTasa = (txt: string) => {
     setTasaTxt(txt);
     const n = Number(txt.replace(',', '.'));
-    if (Number.isFinite(n) && n >= 0 && n <= 100) { setTasa(n / 100); guardarConfig('tasaIVA', n / 100); }
+    if (txt.trim() !== '' && Number.isFinite(n) && n >= 0 && n <= 100) { setTasa(n / 100); guardarAjuste('tasaIVA', n / 100); }
   };
 
   const datos = useLiveQuery(async () => ({
@@ -53,7 +59,8 @@ export default function Facturas() {
         <SelectorMes anio={anio} mes={mes} onChange={(a, m) => ir(`/facturas?anio=${a}&mes=${m}`)} />
         <div className="tasa">
           <label>Tasa IVA (%)</label>
-          <input inputMode="decimal" value={tasaTxt} onChange={(e) => cambiarTasa(e.target.value)} />
+          <input inputMode="decimal" value={tasaTxt} onChange={(e) => cambiarTasa(e.target.value)} disabled={!esAdmin}
+            title={esAdmin ? 'Se cambia para todos los equipos' : 'Solo el administrador puede cambiarla'} />
         </div>
       </div>
 

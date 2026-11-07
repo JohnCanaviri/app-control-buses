@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { db, guardar } from '../db';
+import { db, eliminar, guardar } from '../db';
 import type { Importacion } from '../importar';
 import { bs, MESES } from '../format';
 import { Tarjeta } from '../components';
@@ -11,6 +11,7 @@ export default function Importar() {
   const [leyendo, setLeyendo] = useState(false);
   const [datos, setDatos] = useState<Importacion | null>(null);
   const [existentes, setExistentes] = useState(0);
+  const [viejos, setViejos] = useState<{ viajes: string[]; facturas: string[]; gastos: string[] }>({ viajes: [], facturas: [], gastos: [] });
   const [error, setError] = useState('');
   const [hecho, setHecho] = useState('');
 
@@ -19,12 +20,17 @@ export default function Importar() {
     setNombre(archivo.name); setDatos(null); setError(''); setHecho(''); setLeyendo(true);
     try {
       // El lector de Excel se carga solo cuando hace falta, para que la app abra rápido.
-      const { importarLibro } = await import('../importar');
+      const { importarLibro, reemplazados } = await import('../importar');
       const r = importarLibro(new Uint8Array(await archivo.arrayBuffer()));
       const ya = await db.viajes.bulkGet(r.viajes.map((v) => v.id));
       setExistentes(ya.filter(Boolean).length);
+      setViejos({
+        viajes: reemplazados(await db.viajes.toArray(), r.viajes, true),
+        facturas: r.facturas.length ? reemplazados(await db.facturas.toArray(), r.facturas, false) : [],
+        gastos: r.gastos.length ? reemplazados(await db.gastos.toArray(), r.gastos, true) : [],
+      });
       setDatos(r);
-      if (!r.viajes.length && !r.facturas.length) setError('No encontré viajes ni facturas en ese archivo.');
+      if (!r.viajes.length && !r.facturas.length && !r.gastos.length) setError('No encontré viajes, facturas ni gastos en ese archivo.');
     } catch (e) {
       setError(`No se pudo leer el archivo: ${(e as Error).message}`);
     } finally {
@@ -34,9 +40,14 @@ export default function Importar() {
 
   async function importar() {
     if (!datos) return;
+    // Lo importado antes de esos mismos días que ya no está en el archivo se quita (así no queda duplicado).
+    await eliminar('viajes', viejos.viajes);
+    await eliminar('facturas', viejos.facturas);
+    await eliminar('gastos', viejos.gastos);
     await guardar('viajes', datos.viajes);
     await guardar('facturas', datos.facturas);
-    setHecho(`✔ Se importaron ${datos.viajes.length} viajes y ${datos.facturas.length} facturas.`);
+    await guardar('gastos', datos.gastos);
+    setHecho(`✔ Se importaron ${datos.viajes.length} viajes, ${datos.facturas.length} facturas y ${datos.gastos.length} gastos del monto total.`);
     setDatos(null);
   }
 
@@ -69,11 +80,12 @@ export default function Importar() {
         {error && <div className="aviso error">{error}</div>}
       </section>
 
-      {datos && (datos.viajes.length > 0 || datos.facturas.length > 0) && (
+      {datos && (datos.viajes.length > 0 || datos.facturas.length > 0 || datos.gastos.length > 0) && (
         <>
           <section className="tarjetas">
             <Tarjeta titulo="Viajes encontrados" valor={datos.viajes.length} nota={existentes ? `${existentes} ya estaban: se actualizarán` : 'Todos son nuevos'} />
             <Tarjeta titulo="Facturas" valor={datos.facturas.length} color="naranja" />
+            {datos.gastos.length > 0 && <Tarjeta titulo="Gastos del monto total" valor={datos.gastos.length} color="naranja" />}
             <Tarjeta titulo="Avisos" valor={datos.problemas.length} color={datos.problemas.length ? 'naranja' : 'verde'} nota={datos.problemas.length ? 'Revisa la lista abajo' : 'Sin problemas'} />
             <Tarjeta titulo="Meses que cuadran" valor={`${datos.comparacion.length - malos} de ${datos.comparacion.length}`} color={malos ? 'naranja' : 'verde'} />
           </section>
@@ -125,9 +137,12 @@ export default function Importar() {
 
           <section className="panel">
             <h2>3. Importar</h2>
-            <p>Si vuelves a importar el mismo Excel, los viajes no se duplican: se actualizan.{existentes > 0 && <b> Si cambiaste en la app alguno de esos {existentes} viajes, se reemplazará por lo que dice el Excel.</b>}</p>
+            <p>Si vuelves a importar el mismo Excel (aunque hayas corregido celdas), los viajes no se duplican: se actualizan.{existentes > 0 && <b> Si cambiaste en la app alguno de esos {existentes} viajes, se reemplazará por lo que dice el Excel.</b>}</p>
+            {viejos.viajes.length + viejos.facturas.length + viejos.gastos.length > 0 && (
+              <p className="naranja-txt">De esos mismos días hay {viejos.viajes.length} viaje(s), {viejos.facturas.length} factura(s) y {viejos.gastos.length} gasto(s) importados antes que ya no están en el archivo (o se importaron con la versión anterior de la app): se quitarán para que no queden repetidos. Lo que registraste a mano en la app no se toca.</p>
+            )}
             <button type="button" className="boton primario" onClick={importar}>
-              ⬇ Importar {datos.viajes.length} viajes y {datos.facturas.length} facturas
+              ⬇ Importar {datos.viajes.length} viajes, {datos.facturas.length} facturas{datos.gastos.length ? ` y ${datos.gastos.length} gastos` : ''}
             </button>
           </section>
         </>

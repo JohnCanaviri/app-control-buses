@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
+import { esDiesel } from './diesel';
 
 // Sin mayúsculas ni tildes: «cbba» encuentra «Cbba», «diesel» encuentra «Diésel».
 export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -44,7 +45,8 @@ async function leer(f: Fuente): Promise<string[]> {
     case 'destinos': return (await db.viajes.toArray()).map((v) => v.destino);
     case 'proveedores': return (await db.facturas.toArray()).map((x) => x.proveedor);
     case 'conceptosFactura': return (await db.facturas.toArray()).map((x) => x.concepto);
-    case 'conceptosGasto': return (await db.viajes.toArray()).flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => g.concepto));
+    // El diésel ya no se anota en los viajes: no se sugiere.
+    case 'conceptosGasto': return (await db.viajes.toArray()).flatMap((v) => [...v.gastos, ...v.otrosGastos].map((g) => g.concepto)).filter((c) => !esDiesel(c));
     case 'categoriasGasto': return (await db.gastos.toArray()).map((g) => g.categoria);
   }
 }

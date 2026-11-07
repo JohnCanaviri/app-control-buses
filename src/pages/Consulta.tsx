@@ -3,7 +3,7 @@ import { db, BUSES } from '../db';
 import { calcular, totalizar } from '../calc';
 import { bs, diaSemana, entero, fechaCorta, MESES, rangoMes } from '../format';
 import { ir, useRuta } from '../router';
-import { Botones, Insignia, SelectorMes, Tarjeta } from '../components';
+import { SelectorBus, Insignia, SelectorMes, Tarjeta } from '../components';
 
 const TODOS = 'Todos';
 
@@ -38,7 +38,7 @@ export default function Consulta() {
         </div>
       </div>
       <div className="filtros">
-        <Botones opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio, mes)} />
+        <SelectorBus opciones={[...BUSES, TODOS]} valor={bus} onChange={(b) => cambiar(b, anio, mes)} />
         <SelectorMes anio={anio} mes={mes} onChange={(a, m) => cambiar(bus, a, m)} />
       </div>
 
@@ -84,10 +84,10 @@ export default function Consulta() {
                   <td className={`num ${t.netoFinal < 0 ? 'negativo' : ''}`}>{bs(t.netoFinal)}</td><td></td>
                 </tr>
                 {filas.map(({ v, c }) => (
-                  <tr key={v.id} className="clic" onClick={() => ir(`/viaje/${v.id}`)} title={v.observaciones || 'Clic para editar'}>
+                  <tr key={v.id} className="clic" onClick={() => ir(`/viaje/${encodeURIComponent(v.id)}`)} title={v.observaciones || 'Clic para editar'}>
                     <td>{fechaCorta(v.fecha)}</td>{bus === TODOS && <td><b>{v.bus}</b></td>}<td>{v.destino}</td>
                     <td>{[v.horaSalida, v.horaLlegada].filter(Boolean).join(' - ')}</td>
-                    <td className="num">{c.boletosIda}</td><td className="num">{bs(c.montoIda)}</td>
+                    <td className="num">{v.sinBoletoIda ? <span title="Sin boletos de ida">S/B{c.idaPendiente ? ' ⚠' : ''}</span> : c.boletosIda}</td><td className="num">{c.idaPendiente ? <span className="naranja-txt">falta</span> : bs(c.montoIda)}</td>
                     <td className="num">{c.descuentoIda ? bs(c.descuentoIda) : '-'}</td><td className="num azul-txt fuerte">{bs(c.idaNeto)}</td>
                     <td className="num">{bs(c.montoCalculadoLlegada)}</td><td><Insignia v={c.verificacion} /></td><td className="num">{bs(c.montoRegistrado)}</td>
                     <td className="num" title={v.gastos.map((g) => `${g.concepto} ${g.monto}`).join('; ')}>{bs(c.totalGastos)}</td>
